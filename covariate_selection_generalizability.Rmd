@@ -1,0 +1,1425 @@
+---
+title: "Covariate selection generalization"
+author:
+  - Bénédicte Colnet [Inria, Paris-Saclay]
+date: "May 2022"
+output:
+  html_document:
+    code_folding: "hide"
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+  pdf_document:
+    toc: yes
+abstract: | 
+  to be completed
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+set.seed(123)
+
+# libraries
+library(MASS) # simulations
+library(ggplot2) # plots
+library(tidyr) # pivot longer or wider
+library(dplyr) # case_when and others
+library(mvtnorm)
+library(heplots) # variance covariance tests + viz
+library(genRCT) # package from Shu
+```
+
+
+# Toy example
+
+```{r}
+# toy simulation example in the spirit of Hirano & Imbens
+toy.example <- function(n = 1000, m = 1000, 
+                        ratio = 0.5, 
+                        output.oracles = TRUE,
+                        symetric.po = TRUE,
+                        var.Y = 2,
+                        noisier.var.X1 = TRUE,
+                        prop.X1.RCT = 0.75,
+                        prop.X1.Target = 0.5,
+                        ATE.on.X1 = 10,
+                        factor.var = 5){
+  
+  
+  X.RCT <- rbinom(n = n, 1, prop.X1.RCT)
+  X.obs <- rbinom(n = m, 1, prop.X1.Target)
+  
+  # random treatment assignment within the RCT / Bernoulli trial
+  treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
+  
+  output <- data.frame("X" = c(X.RCT, X.obs),
+                       "S" = c(rep(1, n), rep(0, m)),
+                       "A" = c(treat.assignment.in.RCT, rep(NA, m)))
+  
+  
+  if (symetric.po){
+    error_0 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
+    error_1 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
+    output$Y_0  = ifelse(output$X == 1, -ATE.on.X1/2, -2.5)
+    output$Y_0 <- output$Y_0 + error_0
+    output$Y_1  = ifelse(output$X == 1, ATE.on.X1/2, 2.5)
+    output$Y_1 <- output$Y_1 + error_1
+    
+  } else {
+    error_0 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
+    error_1 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
+    output$Y_0  = ifelse(output$X == 1, 0, 0)
+    output$Y_0 <- output$Y_0 + error_0
+    output$Y_1  = ifelse(output$X == 1, ATE.on.X1, 5)
+    output$Y_1 <- output$Y_1 + error_1
+    
+  }
+  
+  if (noisier.var.X1){
+    error_sup_Y1 = rnorm(n = nrow(output), mean = 0, sd = factor.var*var.Y)
+    error_sup_Y0 = 0
+    output$Y_1  = ifelse(output$X == 1, output$Y_1 + error_sup_Y1,  output$Y_1)
+    output$Y_0  = ifelse(output$X == 1, output$Y_0 + error_sup_Y0,  output$Y_0)
+  }
+  
+  # observed outcome
+  output$Y <- ifelse(output$S == 1, ifelse(output$A == 1, output$Y_1, output$Y_0), NA)
+  
+  if(output.oracles){
+    
+    # add oracle quantities
+    output$e <- ifelse(output$S == 1, ratio, NA)
+    output$pt <- ifelse(output$S == 1, ifelse(output$X == 1, prop.X1.Target, (1-prop.X1.Target)), NA)
+    output$pr <- ifelse(output$S == 1, ifelse(output$X == 1, prop.X1.RCT, (1-prop.X1.RCT)), NA)
+    
+    
+
+  } else {
+    # keep only the interesting subset of covariates
+    output <- output[, c("X", "A", "Y", "S")]
+  }
+
+  return(output)
+  
+  
+}
+```
+
+```{r}
+difference.in.means <- function(dataframe, oracle.e.too = TRUE, estimand = "ATE"){
+  rct <- dataframe[dataframe$S == 1,]
+  Y = rct$Y
+  A = rct$A
+  
+  if (oracle.e.too){
+    e = rct[1, "e"]
+  } else {
+    e = mean(rct$A)
+  }
+  
+  # estimation
+  if (estimand == "ATE"){
+    estimate = mean(Y * (A/e - (1-A)/(1-e)))
+  } else if (estimand == "Y1") {
+    estimate = mean(Y *A/e)
+  }  else if (estimand == "Y0") {
+    estimate = mean(Y *(1-A)/(1-e))
+  } else {
+    print("Error in estimand, should be ATE, Y1, or Y0")
+    break
+    }
+  
+  return(estimate)
+}
+
+# ipsw which estimate the ratio estimator with univariate and categorical X
+ipsw.univariate.and.categorical.X <- function(dataframe, estimand = "ATE", oracle.e = F, oracle.pt = F, oracle.pr = F){
+  
+  # extract RCT and relevant quantities
+  rct <- dataframe[dataframe$S == 1,]
+  Y = rct$Y
+  A = rct$A
+  X = rct$X
+  
+  if (oracle.e){
+    e.hat.X1 = 0.5
+    e.hat.X0 = 0.5
+    
+  } else {
+    e.hat.X1 = mean(rct[rct$X == 1, "A"])
+    e.hat.X0 = mean(rct[rct$X == 0, "A"])
+  }
+  
+  
+  e.hat <- ifelse(rct$X == 1, e.hat.X1, e.hat.X0)
+  
+  if (!oracle.pt & !oracle.pr){
+    
+    r.X.1 <- mean(dataframe[dataframe$S == 0, "X"]) / mean(dataframe[dataframe$S == 1, "X"])
+    r.X.0 <- (1- mean(dataframe[dataframe$S == 0, "X"]))/ (1-mean(dataframe[dataframe$S == 1, "X"]))
+    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
+    
+  } else if (!oracle.pt & oracle.pr){
+    
+    if(!("pr" %in% colnames(dataframe)) ) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+      break
+    }
+    
+    r.X.1 <- mean(dataframe[dataframe$S == 0, "X"]) / rct[rct$X == 1, "pr"][[1]]
+    r.X.0 <- (1- mean(dataframe[dataframe$S == 0, "X"]))/   rct[rct$X == 0, "pr"][[1]]
+    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
+    
+  } else if  (oracle.pt & !oracle.pr){
+    
+    if(!("pt" %in% colnames(dataframe))) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+      break
+    }
+    
+    r.X.1 <- rct[rct$X == 1, "pt"][[1]] / mean(dataframe[dataframe$S == 1, "X"])
+    r.X.0 <-  rct[rct$X == 0, "pt"][[1]] / (1-mean(dataframe[dataframe$S == 1, "X"]))
+    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
+    
+  } else { # full oracle
+    
+    if(!("pt" %in% colnames(dataframe)) | !("pr" %in% colnames(dataframe)) ) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+      break
+    }
+    
+    r.X <- rct$pt /  rct$pr
+    
+  }
+  
+  mean.Y1 = mean(A*Y*r.X/e.hat)
+  mean.Y0 = mean((1-A)*Y*r.X/(1-e.hat))
+  
+  # estimation
+  if (estimand == "ATE"){
+    estimate = mean.Y1 - mean.Y0
+  } else if (estimand == "Y1") {
+    estimate = mean.Y1
+  }  else if (estimand == "Y0") {
+    estimate = mean.Y0
+  } else {
+    print("Error in estimand, should be ATE, Y1, or Y0")
+    break
+    }
+  
+  
+  return(estimate)
+}
+```
+
+
+
+```{r}
+# illustration of heterogeneities
+simulation.toy.example <- toy.example(n =  1000, m = 10, noisier.var.X1 = F, ATE.on.X1 = 10, symetric.po = F, var.Y = 2, factor.var = 0, prop.X1.Target = 0.5)
+
+t.test(simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$A == 1, "Y"], simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$A == 0, "Y"])
+
+t.test(simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$A == 1 & simulation.toy.example$X == 1, "Y"], simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$A == 0& simulation.toy.example$X == 1, "Y"])
+
+
+t.test(simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$A == 1 & simulation.toy.example$X == 0, "Y"], simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$A == 0& simulation.toy.example$X == 0, "Y"])
+```
+
+
+```{r}
+simulation.toy.example <- toy.example(n =  50000, m = 50000, noisier.var.X1 = T, ATE.on.X1 = 10, symetric.po = F, var.Y = 2, factor.var = 0, prop.X1.Target = 0.5)
+
+simulation.toy.example.for.plot <- simulation.toy.example %>%
+  pivot_longer(c("Y_1", "Y_0"), names_to = "PO")
+
+
+simulation.toy.example.for.plot$S <- ifelse(simulation.toy.example.for.plot$S == 1, "Trial", "Target")
+simulation.toy.example.for.plot$X <- as.factor(simulation.toy.example.for.plot$X)
+
+simulation.toy.example.for.plot$PO.X <- case_when(simulation.toy.example.for.plot$X == 1 & simulation.toy.example.for.plot$PO == "Y_0" ~ "any X, Y(0)   ",
+                                                  simulation.toy.example.for.plot$X == 0 & simulation.toy.example.for.plot$PO == "Y_0" ~ "any X, Y(0)   ",
+                                                  simulation.toy.example.for.plot$X == 1 & simulation.toy.example.for.plot$PO == "Y_1" ~ "X = 1, Y(1)   ",
+                                                  simulation.toy.example.for.plot$X == 0 & simulation.toy.example.for.plot$PO == "Y_1" ~ "X = 0, Y(1)   ")
+```
+
+
+```{r}
+ggplot(simulation.toy.example.for.plot[simulation.toy.example.for.plot$S == "Target",], aes(x =  value, fill = PO.X)) +
+    geom_density(alpha = 0.6) +
+  theme_classic() + 
+  scale_fill_manual(values=c("#A2A399", "#149AD8", "#E69F00"), name = "") +
+  xlab("Y") +
+  ylab("Density") + 
+  theme(legend.position="none") +
+  theme(legend.position = c(0.87, 0.82)) +
+  theme( legend.text = element_text(size = 6, face = "bold")) +
+  xlim(-5, 20)
+ggsave("./fig/toy_example_response_level.pdf", width = 3, height = 3)
+```
+
+```{r}
+ggplot(simulation.toy.example.for.plot, aes(X, group = S)) +
+  geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat="count", width = 0.7) + 
+  scale_y_continuous(labels=scales::percent) +
+  theme_classic() +
+  facet_grid(~S) + 
+  scale_fill_manual(values=c("#56B4E9", "#E69F00")) +
+  ylab("%") + 
+  theme(legend.position = "none") +
+  xlab("X") 
+ggsave("./fig/toy_example_covariate_shift.pdf", width = 3, height = 3)
+```
+
+```{r}
+toy.example.simulations.m.varies <- data.frame("estimate" = c(),
+                                       "estimator" = c(),
+                                       "m" = c())
+
+
+for (i in 1:1000){
+  for (noisy.X1 in c(T, F)){
+    
+    for (sample.size.m in c(10, 50, 100, 500)){
+      
+      simulation <- toy.example(n = 500, m = sample.size.m, output.oracles = T, symetric.po = F, noisier.var.X1 = F, factor.var = 0, prop.X1.Target = 0.3)
+      
+      
+      ipsw.oracle <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = T, oracle.pr = T)
+      ipsw.fully.estimated <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = F, oracle.pr = F)
+      ipsw.oracle.pt <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = T, oracle.pr = F)
+      ipsw.oracle.pr <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = F, oracle.pr = T)
+      naive <- difference.in.means(dataframe = simulation, estimand = "ATE", oracle.e.too = T)
+           
+           
+      new.row <- data.frame("estimate" = c(ipsw.oracle, ipsw.fully.estimated, ipsw.oracle.pt, ipsw.oracle.pr, naive),
+                            "estimator" = c("IPSW oracle", "IPSW fully estimated", "IPSW oracle pt", "IPSW oracle pr", "Naive trial estimate"),
+                            "m" = rep(sample.size.m, 5))
+           
+      toy.example.simulations.m.varies <- rbind(toy.example.simulations.m.varies, new.row)
+    }
+  }
+}
+
+
+toy.example.simulations.m.varies$m <- as.factor(toy.example.simulations.m.varies$m)
+```
+
+
+```{r}
+ggplot(toy.example.simulations.m.varies, aes(x = m, y = estimate, fill = estimator)) +
+  geom_boxplot() +
+  geom_hline(aes(yintercept = 0.3*10+0.7*5, color = "ATE in Target population"),  size = 0.8, linetype = "dashed") + 
+  geom_hline(aes(yintercept = 0.75*10+0.25*5, color = "ATE in Trial population"), size = 0.8, linetype="dashed")  +
+  theme_minimal() +
+  scale_fill_brewer(palette="Spectral")  +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 10, face = "bold")) + 
+  ylab("ATE") +
+  xlab("Observational sample size m") 
+```
+
+```{r}
+toy.example.simulations.n.varies <- data.frame("estimate" = c(),
+                                       "estimator" = c(),
+                                       "n" = c())
+
+
+for (i in 1:1000){
+  for (noisy.X1 in c(T, F)){
+    
+    for (sample.size.n in c(100, 250, 500, 750)){
+      
+      simulation <- toy.example(n = sample.size.n, m = 100, output.oracles = T, symetric.po = F, noisier.var.X1 = F, factor.var = 0, prop.X1.Target = 0.3)
+      ipsw.oracle <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = T, oracle.pr = T)
+      ipsw.fully.estimated <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = F, oracle.pr = F)
+      ipsw.oracle.pt <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = T, oracle.pr = F)
+      ipsw.oracle.pr <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = F, oracle.pr = T)
+      naive <- difference.in.means(dataframe = simulation, estimand = "ATE", oracle.e.too = T)
+           
+           
+      new.row <- data.frame("estimate" = c(ipsw.oracle, ipsw.fully.estimated, ipsw.oracle.pt, ipsw.oracle.pr, naive),
+                            "estimator" = c("IPSW oracle", "IPSW fully estimated", "IPSW oracle pt", "IPSW oracle pr", "Naive trial estimate"),
+                            "n" = rep(sample.size.n, 5))
+           
+      toy.example.simulations.n.varies <- rbind(toy.example.simulations.n.varies, new.row)
+    }
+  }
+}
+
+
+toy.example.simulations.n.varies$n <- as.factor(toy.example.simulations.n.varies$n)
+```
+
+
+```{r}
+ggplot(toy.example.simulations.n.varies, aes(x = n, y = estimate, fill = estimator)) +
+  geom_boxplot() +
+  geom_hline(aes(yintercept = 0.3*10+0.7*5, color = "ATE in Target population"),  size = 0.8, linetype = "dashed") + 
+  geom_hline(aes(yintercept = 0.75*10+0.25*5, color = "ATE in Trial population"), size = 0.8, linetype="dashed")  +
+  theme_minimal() +
+  scale_fill_brewer(palette="Spectral")  +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 10, face = "bold")) + 
+ # theme(axis.text = element_text(angle = 45, vjust = 0.5, hjust=1, size=10)) +
+  #scale_linetype_manual(name ="", values = c('dashed','dashed')) + 
+  ylab("ATE") +
+  xlab("RCT sample size n") 
+```
+
+
+```{r}
+ggplot(toy.example.illustration[toy.example.illustration$noisy.X1,], aes(x = sample.size, y = estimate, fill = estimator)) +
+  geom_boxplot() +
+  #facet_wrap(~DGP, ncol = 1) +
+  geom_hline(yintercept = 0.3*10+0.7*5, linetype = "dashed", color = "#E1F113", size = 0.8) +
+  geom_hline(yintercept = 0.75*10+0.25*5, linetype = "dashed", color = "#0B9CEA", size = 0.8) +
+  theme_bw() +
+  ylab("ATE") +
+  xlab("")  + 
+  scale_fill_manual(values=c("#496776", "#B0E121"), name = "") +
+  theme(legend.position="none") +
+  ylim(5, 10)
+ggsave("./fig/toy_example_estimates_noisy_X.pdf", width = 3, height = 3) 
+
+
+ggplot(toy.example.illustration[!toy.example.illustration$noisy.X1,], aes(x = sample.size, y = estimate, fill = estimator)) +
+  geom_boxplot() +
+  #facet_wrap(~DGP, ncol = 1) +
+  geom_hline(yintercept = 0.3*10+0.7*5, linetype = "dashed", color = "#E1F113", size = 0.8) +
+  geom_hline(yintercept = 0.75*10+0.25*5, linetype = "dashed", color = "#0B9CEA", size = 0.8) +
+  theme_bw() +
+  ylab("ATE") +
+  xlab("")  + 
+  theme(legend.position="top") +
+  scale_fill_manual(values=c("#496776", "#B0E121"), name = "")  +
+#   theme(legend.position = c(0.87, 0.9), legend.background = element_rect(size=0.5, linetype="solid", 
+#                                   colour ="black")) + 
+  theme( legend.text = element_text(size = 7, face = "bold")) +
+  ylim(5, 10)
+# + 
+#   scale_y_continuous(position = "right")
+ggsave("./fig/toy_example_estimates_not_noisy_X.pdf", width = 3, height = 3)
+```
+
+
+# Categorical covariates
+
+
+```{r}
+simulation.multivariate.categorical.X <- function(n = 1000, m = 1000, 
+                                          ratio = 0.5, 
+                                          output.oracles = TRUE,
+                                          prop.X1.RCT = 0.75,
+                                          prop.X1.Target = 0.5){
+  
+  
+  
+  # the treatment effect modifier X1 
+  X1.RCT <- rbinom(n = n, 1, prop.X1.RCT)
+  X1.obs <- rbinom(n = m, 1, prop.X1.Target)
+  
+  # the covariate explaining outcome but not shifted X2
+  X2.RCT <- rbinom(n = n, 1, 0.5)
+  X2.obs <- rbinom(n = m, 1, 0.5)
+  
+  # random treatment assignment within the RCT / Bernoulli trial
+  treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
+  
+  output <- data.frame("X1" = c(X1.RCT, X1.obs),
+                       "X2" = c(X2.RCT, X2.obs),
+                       "S" = c(rep(1, n), rep(0, m)),
+                       "A" = c(treat.assignment.in.RCT, rep(NA, m)))
+  
+  
+  error_0 = rnorm(n = nrow(output), mean = 0, sd = 1)
+  error_1 = rnorm(n = nrow(output), mean = 0, sd = 1)
+  output$Y_0  = ifelse(output$X1 == 1, 0, 0)
+  output$Y_0  = ifelse(output$X2 == 1, output$Y_0 + 5, output$Y_0)
+  output$Y_0 <- output$Y_0 + error_0
+  output$Y_1  = ifelse(output$X1 == 1, 10, 5)
+  output$Y_1  = ifelse(output$X2 == 1, output$Y_1 + 5, output$Y_1)
+  output$Y_1 <- output$Y_1 + error_1
+    
+  
+  # observed outcome
+  output$Y <- ifelse(output$S == 1, ifelse(output$A == 1, output$Y_1, output$Y_0), NA)
+  
+  if(output.oracles){
+    
+    # add oracle quantities
+    output$e <- ifelse(output$S == 1, ratio, NA)
+    output$r <- ifelse(output$S == 1, ifelse(output$X1 == 1, prop.X1.Target/prop.X1.RCT, (1-prop.X1.Target)/(1-prop.X1.RCT)), NA)
+    output$pt <- ifelse(output$S == 1, ifelse(output$X1 == 1, prop.X1.Target, (1-prop.X1.Target)), NA)
+
+  } else {
+    # keep only the interesting subset of covariates
+    output <- output[, c("X", "A", "Y", "S")]
+  }
+
+  return(output)
+}
+```
+
+
+
+```{r}
+ipsw.binned <- function(covariates_names_vector, 
+                       dataframe,
+                       outcome_name = "Y",
+                       treatment_name = "A"){
+  
+  e.hat <- dataframe %>% 
+    group_by(across(covariates_names_vector)) %>%
+    summarise(e.hat = mean(A))
+  
+  
+  final <- dataframe
+  final <- merge(final, e.hat, by = covariates_names_vector)
+  gamma <- ((final$Y * final$A)/final$e.hat) - ((final$Y * (1-final$A))/(1-final$e.hat))
+  return(mean(gamma, na.rm = TRUE))
+}
+```
+
+
+```{r}
+# Possible to have lower variance after generalization if higher proportion of low varying outcome in the target population 
+ggplot(univariate.and.categorical.X[univariate.and.categorical.X$tau.X1 == 10 & univariate.and.categorical.X$prop.X1.target == 0.2 ,], aes(x = sample.size, y = estimate, fill = estimator)) +
+  geom_boxplot() +
+  facet_grid(~noisy.X1) +
+  theme_bw() +
+  geom_hline(yintercept = 0.2*10+0.8*5, linetype = "dashed", color = "magenta") +
+  geom_hline(yintercept = 0.75*10+0.25*5, linetype = "dashed", color = "blue")
+
+
+# The variance depends on the effect size if the target sample i 
+```
+
+
+# Several covariates
+
+
+```{r}
+toy.example <- function(n = 1000, m = 1000, 
+                        ratio = 0.5, 
+                        output.oracles = TRUE,
+                        symetric.po = TRUE,
+                        var.Y = 2,
+                        noisier.var.X1 = TRUE,
+                        prop.X1.RCT = 0.75,
+                        prop.X1.Target = 0.5,
+                        ATE.on.X1 = 10,
+                        factor.var = 5){
+  
+  
+  X.RCT <- rbinom(n = n, 1, prop.X1.RCT)
+  X.obs <- rbinom(n = m, 1, prop.X1.Target)
+  
+  # random treatment assignment within the RCT / Bernoulli trial
+  treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
+  
+  output <- data.frame("X" = c(X.RCT, X.obs),
+                       "S" = c(rep(1, n), rep(0, m)),
+                       "A" = c(treat.assignment.in.RCT, rep(NA, m)))
+  
+  
+  if (symetric.po){
+    error_0 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
+    error_1 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
+    output$Y_0  = ifelse(output$X == 1, -ATE.on.X1/2, -2.5)
+    output$Y_0 <- output$Y_0 + error_0
+    output$Y_1  = ifelse(output$X == 1, ATE.on.X1/2, 2.5)
+    output$Y_1 <- output$Y_1 + error_1
+    
+  } else {
+    error_0 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
+    error_1 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
+    output$Y_0  = ifelse(output$X == 1, 0, 0)
+    output$Y_0 <- output$Y_0 + error_0
+    output$Y_1  = ifelse(output$X == 1, ATE.on.X1, 5)
+    output$Y_1 <- output$Y_1 + error_1
+    
+  }
+  
+  if (noisier.var.X1){
+    error_sup_Y1 = rnorm(n = nrow(output), mean = 0, sd = factor.var*var.Y)
+    error_sup_Y0 = 0
+    output$Y_1  = ifelse(output$X == 1, output$Y_1 + error_sup_Y1,  output$Y_1)
+    output$Y_0  = ifelse(output$X == 1, output$Y_0 + error_sup_Y0,  output$Y_0)
+  }
+  
+  # observed outcome
+  output$Y <- ifelse(output$S == 1, ifelse(output$A == 1, output$Y_1, output$Y_0), NA)
+  
+  if(output.oracles){
+    
+    # add oracle quantities
+    output$e <- ifelse(output$S == 1, ratio, NA)
+    output$r <- ifelse(output$S == 1, ifelse(output$X == 1, prop.X1.Target/prop.X1.RCT, (1-prop.X1.Target)/(1-prop.X1.RCT)), NA)
+
+  } else {
+    # keep only the interesting subset of covariates
+    output <- output[, c("X", "A", "Y", "S")]
+  }
+
+  return(output)
+  
+  
+}
+```
+
+
+
+
+
+```{r}
+# warning, require an input with oracles
+oracle_ipsw <- function(dataframe, oracle.e.too = TRUE, estimand = "ATE"){
+  
+  if(! ("r" %in% colnames(dataframe))) {
+    print("Error: should provide a data set with oracles quantities to proceed")
+    break
+  }
+  
+  # extract RCT and relevant quantities
+  rct <- dataframe[dataframe$S == 1,]
+  Y = rct$Y
+  r = rct$r
+  A = rct$A
+  
+  # double oracle or not ?
+  if (oracle.e.too){
+    e = rct[1, "e"]
+  } else {
+    e = mean(rct$A)
+  }
+  
+  # estimation
+  if (estimand == "ATE"){
+    estimate = mean(r*Y * (A/e - (1-A)/(1-e)))
+  } else if (estimand == "Y1") {
+    estimate = mean(r*Y *A/e)
+  }  else if (estimand == "Y0") {
+    estimate = mean(r*Y *(1-A)/(1-e))
+  } else {
+    print("Error in estimand, should be ATE, Y1, or Y0")
+    break
+    }
+  
+  
+  return(estimate)
+}
+
+```
+
+
+```{r}
+results.toy.example <- data.frame("estimate" = c(),
+                                  "estimator" = c(),
+                                  "symetric.PO" = c(),
+                                  "set.up" = c())
+
+
+for (i in 1:1000){
+  for (symetric.PO in c(TRUE, FALSE)) {
+    
+    for (setup in c("n=100;m=100", "n=100;m=1000", "n=1000;m=100")){
+    
+    if (setup == "n=100;m=100"){
+      neff = 100
+      meff = 100
+    } else if (setup == "n=100;m=1000"){
+      neff = 100
+      meff = 1000
+    } else {
+      neff = 1000
+      meff = 100
+    }
+      
+      simulation.toy.example <- toy.example(n =  neff, m = meff, symetric.po = symetric.PO, noisier.var.X1 = FALSE)
+      double.oracle <- oracle_ipsw(simulation.toy.example, oracle.e.too = T, estimand = "ATE")
+      simple.oracle <- oracle_ipsw(simulation.toy.example, oracle.e.too = F, estimand = "ATE")
+      ipsw.with.oracle.e <- ipsw.univariate.and.categorical.X(simulation.toy.example,  estimand = "ATE", oracle.e = T)
+      ipsw <- ipsw.univariate.and.categorical.X(simulation.toy.example,  estimand = "ATE", oracle.e = F)
+      
+      new.row <- data.frame("estimate" = c(double.oracle, simple.oracle, ipsw.with.oracle.e, ipsw),
+                            "estimator" = c("oracle.r.oracle.e", "oracle.r.estimated.e", "estimated.r.oracle.e", "estimated.r.estimated.e"),
+                            "symetric.PO" = rep(symetric.PO, 4),
+                            "set.up" = rep(setup, 4))
+      
+      results.toy.example <- rbind(results.toy.example, new.row)
+    }
+  }
+}
+```
+
+
+```{r}
+ggplot(results.toy.example, aes(x = symetric.PO, y = estimate, fill = estimator)) +
+  geom_boxplot() +
+  theme_classic() +
+  geom_hline(yintercept = 7.5, color = "magenta", linetype = "dashed") +
+  facet_grid(~set.up)
+```
+
+
+
+
+
+```{r}
+results.toy.example <- data.frame("estimate" = c(),
+                                  "estimator" = c(),
+                                  "noisier.var.X1" = c(),
+                                  "set.up" = c())
+
+
+for (i in 1:1000){
+  for (noisier.var.X1 in c(TRUE, FALSE)) {
+    
+    for (setup in c("n=1000;m=100", "n=1000;m=1000")){
+    
+    if (setup == "n=1000;m=100"){
+      neff = 1000
+      meff = 100
+    } else if (setup == "n=1000;m=1000"){
+      neff = 1000
+      meff = 1000
+    } else {
+      neff = 10000
+      meff = 100
+    }
+      
+      simulation.toy.example <- toy.example(n =  neff, m = meff, symetric.po = TRUE, noisier.var.X1 = noisier.var.X1)
+      simple.oracle <- oracle_ipsw(simulation.toy.example, oracle.e.too = F, estimand = "ATE")
+      ipsw <- ipsw.univariate.and.categorical.X(simulation.toy.example,  estimand = "ATE", oracle.e = F)
+      naive.dm <- difference.in.means(simulation.toy.example, oracle.e = F,  estimand = "ATE")
+      
+      new.row <- data.frame("estimate" = c(simple.oracle, ipsw, naive.dm),
+                            "estimator" = c("oracle.r.estimated.e", "estimated.r.estimated.e", "naive.dm"),
+                            "noisier.var.X1" = rep(noisier.var.X1, 3),
+                            "set.up" = rep(setup, 3))
+      
+      results.toy.example <- rbind(results.toy.example, new.row)
+    }
+  }
+}
+```
+
+
+```{r}
+ggplot(results.toy.example, aes(x = noisier.var.X1, y = estimate, fill = estimator)) +
+  geom_boxplot() +
+  theme_classic() +
+  geom_hline(yintercept = 7.5, color = "magenta", linetype = "dashed") +
+   geom_hline(yintercept = 8.75, color = "darkblue", linetype = "dashed") +
+  facet_grid(~set.up)
+```
+
+
+# Quantitative verifications
+
+## Double oracle estimator
+
+$$\frac{1}{n} \sum_{c=1}^C w_c \left( \mathbb{E}\left[\frac{Y(1)^2}{e_1} \mid X = c \right] + \mathbb{E}\left[\frac{Y(0)^2}{1-e_1}  \mid X = c \right] - \mathbb{E}\left[Y(1) - Y(0) \mid X = c\right]^2 \right)$$
+
+```{r}
+double.oracle.results <- data.frame("estimate" = c(),
+                                    "symetric.PO" = c(),
+                                    "high.variance.X1" = c())
+
+
+var.RCT.X1.noisy <- c()
+var.RCT.X1.not.noisy  <- c()
+var.RCT.X0.noisy   <- c()
+var.RCT.X0.not.noisy  <- c()
+
+for (i in 1:5000){
+  
+  for (symetric.PO in c(T)){
+    for (noisier.var.X1 in c(T, F)){
+       simulation.toy.example <- toy.example(n =  500, m = 100, symetric.po = symetric.PO, noisier.var.X1 = noisier.var.X1, output.oracles = T, prop.X1.Target = 0.6)
+       estimate <- oracle_ipsw(dataframe = simulation.toy.example, oracle.e.too = T, estimand = "ATE")
+       if(noisier.var.X1){
+         var.RCT.X1.noisy <- c(var.RCT.X1.noisy, difference.in.means(simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$X == 1,], oracle.e.too = T))
+         var.RCT.X0.noisy <- c(var.RCT.X0.noisy, difference.in.means(simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$X == 0,], oracle.e.too = T))
+       } else {
+         var.RCT.X1.not.noisy <- c(var.RCT.X1.not.noisy, difference.in.means(simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$X == 1,], oracle.e.too = T))
+         var.RCT.X0.not.noisy <- c(var.RCT.X0.not.noisy, difference.in.means(simulation.toy.example[simulation.toy.example$S == 1 & simulation.toy.example$X == 0,], oracle.e.too = T))
+       }
+       new.row <- data.frame("estimate" = estimate,
+                            "symetric.PO" = symetric.PO,
+                            "high.variance.X1" = noisier.var.X1)
+       double.oracle.results <- rbind(double.oracle.results, new.row)
+    }
+  }
+}
+
+var.RCT.X1.noisy <- var(var.RCT.X1.noisy)
+var.RCT.X1.not.noisy <- var(var.RCT.X1.not.noisy)
+var.RCT.X0.noisy <- var(var.RCT.X0.noisy)
+var.RCT.X0.not.noisy <- var(var.RCT.X0.not.noisy)
+```
+
+
+
+```{r}
+double.oracle.results %>%
+  group_by(symetric.PO, high.variance.X1) %>%
+  summarise(var = var(estimate), sd = sd(estimate))
+```
+
+```{r}
+sqrt((0.6*0.6*var.RCT.X1.noisy + 0.4*0.4*var.RCT.X0.noisy))
+sqrt((0.6*0.6*var.RCT.X1.not.noisy + 0.4*0.4*var.RCT.X0.not.noisy))
+```
+
+
+
+```{r}
+varying.ATE.results <- data.frame("estimate" = c(),
+                                  "ATE.X1" = c(),
+                                  "estimator" = c())
+
+
+
+for (i in 1:1000){
+  for (ATE.X1 in c(10, 20, 30)){
+    simulation.toy.example <- toy.example(n =  1000, m = 100, symetric.po = T, noisier.var.X1 = F, output.oracles = T, prop.X1.Target = 0.5, ATE.on.X1 = ATE.X1)
+    oracle <- oracle_ipsw(dataframe = simulation.toy.example, oracle.e.too = T, estimand = "ATE")
+    ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation.toy.example, estimand = "ATE", oracle.e = T)
+    new.row <- data.frame("estimate" = c(oracle, ipsw),
+                            "ATE.X1" = c(ATE.X1, ATE.X1),
+                            "estimator" = c("oracle", "ipsw"))
+    varying.ATE.results <- rbind(varying.ATE.results, new.row)
+    }
+}
+```
+
+
+```{r}
+ggplot(varying.ATE.results, aes(x = as.factor(ATE.X1), y =  estimate, fill = estimator)) +
+  geom_boxplot()
+```
+
+
+
+
+```{r}
+generate.simulation.shifted.gaussian.cst.ate <- function(n = 1000, m = 1000, 
+                                                   ratio = 0.5,
+                                                   output.oracles = FALSE,
+                                                   symetric.po = TRUE){
+  
+  ### Parameters (hard coded) ##
+  p <- 5
+  covariates_names <- paste0("X", 1:p)
+  
+  mean.RCT <- c(0.7, 1, 0.7, 0.7, 1)
+  mean.Obs <- rep(1, p)
+  delta <- c(30, 30, -15, 0, 0)
+  
+
+  # generate multivariate gaussian vector
+  cov_mat = matrix(c(1, 0, 0, 0, 0,
+                     0, 1, 0, 0, 0,
+                     0, 0, 1, 0, 0,
+                     0, 0, 0, 1, 0,
+                     0, 0, 0, 0, 1), nrow = 5, ncol = 5, byrow = TRUE)
+  
+  # generate source population for RCT
+  RCT <-  rmvnorm(n = n, mean = mean.RCT, sigma = cov_mat)
+  RCT <- as.data.frame(RCT)
+  names(RCT) <- covariates_names
+  RCT$S <-  rep(1, n)
+  
+  # random treatment assignment within the RCT
+  RCT$A <-  rbinom(n, 1, ratio)
+
+  # generate target population
+  RWD <-  mvrnorm(n = m, mu = mean.Obs, Sigma = cov_mat)
+  RWD <- as.data.frame(RWD)
+  names(RWD) <- covariates_names
+  RWD$S <- rep(0, m)
+  RWD$A <- rep(NA, m)
+  
+  # stack RCT and RWE
+  DF <- rbind(RCT, RWD)
+  
+  # reset row number
+  rownames(DF) <- 1:nrow(DF)
+  
+  # baseline
+  error_0 = rnorm(n = nrow(DF), mean = 0, sd = 2)
+  error_1 = rnorm(n = nrow(DF), mean = 0, sd = 2)
+  
+  if (symetric.po){
+      DF$Y_0 = - 5 + error_0
+      DF$Y_1 =  5  + error_1
+  } else {
+      DF$Y_0 =  0 + error_0
+      DF$Y_1 =  10  + error_1
+  }
+
+  
+  DF$Y <- ifelse(DF$S == 1, ifelse(DF$A == 1, DF$Y_1, DF$Y_0), NA)
+  
+  
+  if(output.oracles){
+    
+    # add oracle quantities
+    DF$e <- ifelse(DF$S == 1, ratio, NA)
+    DF$r <- dmvnorm(x = DF[, c("X1", "X2", "X3", "X4", "X5")], mean = mean.Obs, sigma = cov_mat)  / dmvnorm(x = DF[, c("X1", "X2", "X3", "X4", "X5")], mean = mean.RCT, sigma = cov_mat)
+
+  } else {
+    # keep only the interesting subset of covariates
+    DF <- DF[, c(covariates_names, "A", "Y", "S")]
+  }
+
+  return(DF)
+  
+}
+
+
+
+generate.simulation.shifted.gaussian <- function(n = 1000, m = 1000, 
+                                                 ratio = 0.5,
+                                                 output.oracles = FALSE,
+                                                 RCT.bigger.Y = TRUE){
+  
+  ### Parameters (hard coded) ##
+  p <- 5
+  covariates_names <- paste0("X", 1:p)
+  
+  mean.RCT <- c(0.7, 1, 0.7, 0.7, 1)
+  mean.Obs <- rep(1, p)
+  delta <- c(30, 30, -15, 0, 0)
+  
+  if (RCT.bigger.Y){
+    beta <- c(20, 20, 20, 20, 20)
+  } else {
+    beta <- c(5, 5, 5, 5, 20)
+  }
+  
+
+  # generate multivariate gaussian vector
+  cov_mat = matrix(c(1, 0, 0, 0, 0,
+                     0, 1, 0, 0, 0,
+                     0, 0, 1, 0, 0,
+                     0, 0, 0, 1, 0,
+                     0, 0, 0, 0, 1), nrow = 5, ncol = 5, byrow = TRUE)
+  
+  # generate source population for RCT
+  RCT <-  rmvnorm(n = n, mean = mean.RCT, sigma = cov_mat)
+  RCT <- as.data.frame(RCT)
+  names(RCT) <- covariates_names
+  RCT$S <-  rep(1, n)
+  
+  # random treatment assignment within the RCT
+  RCT$A <-  rbinom(n, 1, ratio)
+
+  # generate target population
+  RWD <-  mvrnorm(n = m, mu = mean.Obs, Sigma = cov_mat)
+  RWD <- as.data.frame(RWD)
+  names(RWD) <- covariates_names
+  RWD$S <- rep(0, m)
+  RWD$A <- rep(NA, m)
+  
+  # stack RCT and RWE
+  DF <- rbind(RCT, RWD)
+  
+  # reset row number
+  rownames(DF) <- 1:nrow(DF)
+  
+  # baseline
+  error_0 = rnorm(n = nrow(DF), mean = 0, sd = 2)
+  error_1 = rnorm(n = nrow(DF), mean = 0, sd = 2)
+  DF$Y_0 = beta[1]*DF$X1 + beta[2]*DF$X2 + beta[3]*DF$X3 + beta[4]*DF$X4 + beta[5]*DF$X5  + 
+    error_0
+  DF$Y_1 = beta[1]*DF$X1 + beta[2]*DF$X2 + beta[3]*DF$X3 + beta[4]*DF$X4 + beta[5]*DF$X5  + 
+    delta[1]*DF$X1 + delta[2]*DF$X2 + delta[3]*DF$X3 + delta[4]*DF$X4 + delta[5]*DF$X5 +
+    + error_1
+  
+  DF$Y <- ifelse(DF$S == 1, ifelse(DF$A == 1, DF$Y_1, DF$Y_0), NA)
+  
+  
+  if(output.oracles){
+    
+    # add oracle quantities
+    DF$e <- ifelse(DF$S == 1, ratio, NA)
+    DF$r <- dmvnorm(x = DF[, c("X1", "X2", "X3", "X4", "X5")], mean = mean.Obs, sigma = cov_mat)  / dmvnorm(x = DF[, c("X1", "X2", "X3", "X4", "X5")], mean = mean.RCT, sigma = cov_mat)
+
+  } else {
+    # keep only the interesting subset of covariates
+    DF <- DF[, c(covariates_names, "A", "Y", "S")]
+  }
+
+  return(DF)
+  
+}
+
+
+an.example <- generate.simulation.shifted.gaussian(output.oracles = TRUE)
+```
+
+```{r}
+big.simulation <- generate.simulation.shifted.gaussian(n = 50000, m = 50000, output.oracles = TRUE)
+TARGET.Y1 <- mean(big.simulation[big.simulation$S == 0, "Y_1"])
+TARGET.Y0 <- mean(big.simulation[big.simulation$S == 0, "Y_0"])
+TARGET.ATE <- TARGET.Y1 - TARGET.Y0
+RCT.Y1 <- mean(big.simulation[big.simulation$S == 1, "Y_1"])
+RCT.Y0 <- mean(big.simulation[big.simulation$S == 1, "Y_0"])
+RCT.ATE <- RCT.Y1 - RCT.Y0
+```
+
+
+
+```{r}
+covEllipses(an.example[, c("X1", "X2", "X3", "X4", "X5")],
+            group = an.example$S,  
+            fill=c(rep(FALSE,1), TRUE), 
+            variables=1:5, 
+            fill.alpha=.1,
+            center = TRUE,
+            pooled = FALSE)
+covEllipses(an.example[, c("X1", "X2", "X3", "X4", "X5")],
+            group = an.example$S,  
+            fill=c(rep(FALSE,1), TRUE), 
+            variables=1:5, 
+            fill.alpha=.1,
+            center = FALSE,
+            pooled = FALSE)
+
+
+ggplot(an.example, aes(x = r, group = S, fill = S)) +
+  geom_histogram(binwidth = 0.1, alpha = 0.4) +
+  theme_classic()
+```
+```{r}
+
+
+```
+
+
+```{r}
+oracle.vs.double.oracle <- data.frame("estimate" = c(),
+                                      "estimator" = c(),
+                                      "set.up" = c())
+
+
+
+for (i in 1:3000){
+  for (setup in c("symetric.PO", "nonsymetric.PO")){
+    if(setup == "symetric.PO"){
+      RCT.bigger.Y = TRUE
+    } else {
+      RCT.bigger.Y = FALSE
+    }
+    
+    # simulation <- generate.simulation.shifted.gaussian(n = 500, m = 500, output.oracles = TRUE, RCT.bigger.Y =RCT.bigger.Y)
+    simulation <- generate.simulation.shifted.gaussian.cst.ate(n = 500, m = 500, output.oracles = TRUE, symetric.po = RCT.bigger.Y)
+    
+    double.oracle <- oracle_ipsw(simulation, oracle.e.too = T, estimand = "ATE")
+    simple.oracle <- oracle_ipsw(simulation, oracle.e.too = F, estimand = "ATE")
+    
+    new.row <- data.frame("estimate" = c(double.oracle, simple.oracle),
+                          "estimator" = c("oracle IPSW", "semi-oracle IPSW"),
+                          "set.up" = c(setup, setup))
+    
+    
+    oracle.vs.double.oracle <- rbind(oracle.vs.double.oracle, new.row)
+  }
+  
+}
+```
+
+
+```{r}
+ggplot(oracle.vs.double.oracle, aes(x = estimator, y = estimate)) +
+  geom_boxplot() +
+  theme_classic() +
+  geom_hline(yintercept = 10, color = "magenta", linetype = "dashed", size = 1) +
+  facet_grid(~set.up)
+```
+
+
+
+
+
+
+
+```{r}
+compute_ipsw_logistic <- function(DF, covariates_names, estimand = "ATE"){
+  
+  
+  N <- nrow(DF)
+  n <- nrow(DF[DF$S ==1, ])
+  m <- nrow(DF[DF$S ==0, ])
+  
+  
+  temp <- DF
+  e.hat <- mean(DF[DF$S == 1, "A"])
+  
+  # with logistic regression by default
+  p.fit  <- glm(S ~., family = binomial("logit"), data = temp[, c(covariates_names, "S")])
+  p <- predict(p.fit, type = "response", newdata = temp[, c(covariates_names, "S")])
+  
+  # Store odds
+  temp$odds <- ((1 - p)/p)
+  
+  # Keep only RCT for the rest of the calculus
+  temp <- temp[temp$S == 1,]
+  
+  if (estimand == "ATE"){
+    tau_ipsw <- mean((n/m)*temp$odds*temp$Y*( ( temp$A/e.hat ) - (  (1-temp$A) / (1-e.hat) ) ) )
+  } else if (estimand == "Y1") {
+    tau_ipsw <- mean((n/m)*temp$odds*temp$Y*( temp$A/e.hat ))
+  } else if (estimand == "Y0") { 
+    tau_ipsw <- mean((n/m)*temp$odds*temp$Y*(  (1-temp$A) / (1-e.hat) ) )
+  } else {
+    print("Error in estimand, should be ATE, Y1, or Y0")
+    break
+    }
+  
+  
+    
+ 
+  return(tau_ipsw)
+}
+
+
+# G-formula
+compute_gformula_linear <- function(DF, continuous_Y = TRUE, covariates_names){
+  
+  temp <- DF[, c(covariates_names, "S", "A", "Y")]
+  
+  if(continuous_Y){
+    mu_1 <- lm(Y ~., data = temp[temp$S == 1 & temp$A == 1, !names(temp) %in% c("S", "A")])
+    mu_0 <- lm(Y ~., data = temp[temp$S == 1 & temp$A == 0, !names(temp) %in% c("S", "A")])
+    
+    mu_1_predict <- predict.lm(mu_1, newdata = temp[temp$S == 0, !names(temp) %in% c("S", "A")])
+    mu_0_predict <- predict.lm(mu_0, newdata = temp[temp$S == 0, !names(temp) %in% c("S", "A")])
+    
+    tau_hat_gformula <- mean(mu_1_predict) - mean(mu_0_predict)
+    
+  } else 
+    # binary outcome
+    {
+    mu_1 <- glm(Y ~., family = binomial("logit"), data = temp[temp$S == 1 & temp$A == 1, !names(temp) %in% c("S", "A")])
+    mu_0 <- glm(Y ~., family = binomial("logit"), data = temp[temp$S == 1 & temp$A == 0, !names(temp) %in% c("S", "A")])
+    
+    mu_1_predict <- predict(mu_1, type = "response", newdata = temp[temp$S == 0, !names(temp) %in% c("S", "A")])
+    mu_0_predict <- predict(mu_0, type = "response", newdata = temp[temp$S == 0, !names(temp) %in% c("S", "A")])
+    
+    tau_hat_gformula <- mean(mu_1_predict) - mean(mu_0_predict)
+  }
+  
+  return(tau_hat_gformula)  
+}
+
+calibration_weighting_wrapper  <- function(dataset, covariates_names){
+  
+  trial <- dataset[dataset$S == 1, ]
+  rwe <- dataset[dataset$S == 0, ]
+  Y.trial <- trial$Y
+  A.trial <- trial$A
+  X.trial <- trial[, covariates_names]
+  Y.rwe <- rwe$Y
+  A.rwe <- rwe$A
+  X.rwe <- rwe[, covariates_names]
+  
+  estimate <- genRCT(Y.trial = Y.trial, A.trial = A.trial, X.trial = X.trial, 
+                     Y.rwe = Y.rwe, A.rwe = A.rwe, X.rwe = X.rwe, 
+       family = "gaussian",
+       estimators = "CW", 
+       inference = FALSE, 
+       verbose = FALSE)
+  
+  return(estimate[[1]])
+  
+}
+```
+
+
+
+```{r, warning = FALSE, message = FALSE}
+simple.Y1.mean.results <- data.frame("estimate" = c(),
+                                     "estimator" = c(),
+                                     "set-up" = c(),
+                                     "subset" = c())
+
+
+for (i in 1:1000){
+  
+  for (setup in c("n >> m", "n << m", "n ~ m")){
+    
+    if (setup == "n >> m"){
+      neff = 1000
+      meff = 100
+    } else if (setup == "n << m"){
+      neff = 100
+      meff = 1000
+    } else {
+      neff = 1050
+      meff = 1050
+    }
+    
+    
+      for (subset in c("minimal", "shifted", "treat.effect.mod", "all")){
+        
+        if (subset == "minimal"){
+          covariates_subset <- c("X1", "X3")
+        } else if (subset == "shifted") {
+          covariates_subset <- c("X1", "X3", "X4")
+        } else if (subset == "treat.effect.mod") {
+          covariates_subset <- c("X1", "X2", "X3")
+        } else if (subset == "all"){
+          covariates_subset <- c("X1", "X2", "X3", "X4", "X5")
+        }
+        
+        
+        simulation <- generate.simulation.shifted.gaussian(n = neff, m = meff, output.oracles = TRUE)
+        double.oracle <- oracle_ipsw(simulation, estimand = "ATE")
+        simple.oracle <- oracle_ipsw(simulation, oracle.e.too = F, estimand = "ATE")
+        ipsw <- compute_ipsw_logistic(simulation, covariates_names = covariates_subset, estimand = "ATE")
+        g_formula <- compute_gformula_linear(simulation, covariates_names = covariates_subset)
+        #cw <- calibration_weighting_wrapper(simulation, covariates_names = covariates_subset)
+        
+        new.row <- data.frame("estimate" = c(double.oracle, simple.oracle, ipsw, g_formula),
+                              "estimator" = c("IPSW-2-oracle", "IPSW-1-oracle", "IPSW", "G-formula"),
+                              "set-up"  = rep(setup, 4),
+                              "subset" = rep(subset, 4))
+        
+        simple.Y1.mean.results <- rbind(simple.Y1.mean.results, new.row)
+        
+      }
+  }
+}
+```
+
+```{r}
+ggplot(simple.Y1.mean.results[simple.Y1.mean.results$set.up == "n ~ m", ], aes(x =  estimator, y = estimate, fill = subset)) +
+  geom_boxplot() +
+  geom_hline(yintercept = TARGET.ATE, color = "red", alpha = 0.7, lineype = "dashed") +
+  geom_hline(yintercept = RCT.ATE, color = "darkblue", alpha = 0.7, lineype = "dashed") +
+  theme_bw() +
+  #facet_grid(~subset) +
+  scale_x_discrete(guide = guide_axis(angle = 45)) +
+  ggtitle("n ~ m")
+
+ggplot(simple.Y1.mean.results[simple.Y1.mean.results$set.up == "n << m", ], aes(x =  estimator, y = estimate, fill = subset)) +
+  geom_boxplot() +
+  geom_hline(yintercept = TARGET.ATE, color = "red", alpha = 0.7, lineype = "dashed") +
+  geom_hline(yintercept = RCT.ATE, color = "darkblue", alpha = 0.7, lineype = "dashed") +
+  theme_bw() +
+  #facet_grid(~subset) +
+  scale_x_discrete(guide = guide_axis(angle = 45)) +
+  ggtitle("n << m")
+
+ggplot(simple.Y1.mean.results[simple.Y1.mean.results$set.up == "n >> m", ], aes(x =  estimator, y = estimate, fill = subset)) +
+  geom_boxplot() +
+  geom_hline(yintercept = TARGET.ATE, color = "red", alpha = 0.7, lineype = "dashed") +
+  geom_hline(yintercept = RCT.ATE, color = "darkblue", alpha = 0.7, lineype = "dashed") +
+  theme_bw() +
+  #facet_grid(~subset) +
+  scale_x_discrete(guide = guide_axis(angle = 45)) +
+  ggtitle("n >> m")
+```
+
+
+
+
+
+```{r}
+oracle_ispw(an.example)
+```
+
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+simulation <- generate_lunceford(n = 5000, return_oracles = TRUE)
+ggplot(simulation, aes(x = e)) +
+  geom_histogram()
+```
+
+
+
+```{r}
+# Naive ATE
+big.simulation <- generate_lunceford(n = 50000, return_oracles = FALSE)
+Naive.ATE <- mean(big.simulation[big.simulation$A == 1, "Y"]) -  mean(big.simulation[big.simulation$A == 0, "Y"])
+Naive.ATE
+```
+
+
+
+```{r}
+comparison.estimators <- data.frame("estimate" = c(),
+                                    "method" = c())
+
+for (i in 1:500){
+  simulation <- generate_lunceford(n = 1000, return_oracles = TRUE)
+  
+  estimates.oracle.ipw  <- oracle_ipw(simulation)
+  
+  fmla.outcome <-  formula("Y ~ X.1 + X.2 + X.3")
+  fmla.outcome.ext <-  formula("Y ~ X.1 + X.2 + X.3 + V.1 + V.2 + V.3")
+  fmla.treat <-  formula("A ~ X.1 + X.2 + X.3")
+  fmla.treat.ext  <-  formula("A ~ X.1 + X.2 + X.3 + V.1 + V.2 + V.3")
+  
+  # estimate surface responses
+  mu.1.model <- lm(fmla.outcome, 
+                     data = simulation[simulation$A == 1, ])
+  mu.0.model <- lm(fmla.outcome, 
+                     data = simulation[simulation$A == 0, ])
+  
+  # estimate surface responses with extended set
+  mu.1.model.ext  <- lm(fmla.outcome.ext, 
+                     data = simulation[simulation$A == 1, ])
+  mu.0.model.ext  <- lm(fmla.outcome.ext, 
+                     data = simulation[simulation$A == 0, ])
+  
+  # estimate propensity scores without and with extended set
+  propensity.model <- glm(fmla.treat, data = simulation, family="binomial")
+  propensity.model.ext <- glm(fmla.treat.ext, data = simulation, family="binomial")
+  
+  # Predict
+  mu.hat.1 <- predict(mu.1.model, newdata = simulation, type="response")
+  mu.hat.0 <- predict(mu.0.model, newdata = simulation, type="response")
+  
+  mu.hat.1.ext <- predict(mu.1.model.ext, newdata = simulation, type="response")
+  mu.hat.0.ext <- predict(mu.0.model.ext, newdata = simulation, type="response")
+  
+  e.hat <- predict(propensity.model, newdata = simulation, type="response")
+  e.hat.ext <- predict(propensity.model.ext, newdata = simulation, type="response")
+  
+  
+  # compute estimates
+  Y = simulation$Y
+  A = simulation$A
+  
+  ipw <- Y * (A/e.hat - (1-A)/(1-e.hat))
+  
+  ipw.ext <- Y * (A/e.hat.ext - (1-A)/(1-e.hat.ext))
+  
+  aipw <- (mu.hat.1 - mu.hat.0
+           + A / e.hat * (Y -  mu.hat.1)
+           - (1 - A) / (1 - e.hat) * (Y -  mu.hat.0))
+  aipw.ext <- (mu.hat.1.ext - mu.hat.0.ext
+           + A / e.hat.ext * (Y -  mu.hat.1.ext)
+           - (1 - A) / (1 - e.hat.ext) * (Y -  mu.hat.0.ext))
+  
+  tlearner <- mu.hat.1 - mu.hat.0
+  
+  tlearner.ext <-mu.hat.1.ext - mu.hat.0.ext
+  
+  new_row <- data.frame("estimate" = c(estimates.oracle.ipw, mean(ipw), mean(ipw.ext), mean(aipw), mean(aipw.ext), mean(tlearner), mean(tlearner.ext)),
+                        "method" = c("IPW oracle", "IPW - X", "IPW - X + V", "AIPW - X", "AIPW - X + V", "G-formula - X", "G-formula - X + V"))
+  
+  comparison.estimators <- rbind(comparison.estimators, new_row)
+}
+
+
+comparison.estimators$method <- factor(comparison.estimators$method, levels = c("IPW oracle", "IPW - X", "IPW - X + V", "AIPW - X", "AIPW - X + V", "G-formula - X", "G-formula - X + V"))
+```
+
+
+
+```{r}
+ggplot(comparison.estimators, aes(x = method, y = estimate, fill = method)) +
+  geom_boxplot(alpha = 0.9, show.legend = FALSE) +
+  theme_minimal() +
+  xlab("") +
+  ylab("ATE") +
+  geom_hline(yintercept = 2, linetype = "dashed", color = "red", alpha = 0.8, size = 0.8) +
+  theme(legend.title = element_blank(), legend.position = "bottom", 
+          legend.box = "horizontal", legend.text = element_text(size=10)) +
+  theme(axis.text = element_text(size=13, face = "bold"),
+           axis.title.x = element_text(size=14, face = "bold")) +
+  scale_fill_brewer(palette = "Accent") +
+  coord_flip() +
+  ylim(0,5)
+ggsave("./fig/lunceford.pdf", width = 6, height = 5)
+```
+
+
+```{r}
+ggplot(comparison.estimators[comparison.estimators$method %in% c("IPW oracle", "IPW - X", "AIPW - X"),], aes(x = method, y = estimate, fill = method)) +
+  geom_boxplot(alpha = 0.9, show.legend = FALSE) +
+  theme_minimal() +
+  xlab("") +
+  ylab("ATE") +
+  geom_hline(yintercept = 2, linetype = "dashed", color = "red", alpha = 0.8, size = 0.8) +
+  theme(legend.title = element_blank(), legend.position = "bottom", 
+          legend.box = "horizontal", legend.text = element_text(size=10)) +
+  theme(axis.text = element_text(size=13, face = "bold"),
+           axis.title.x = element_text(size=14, face = "bold")) +
+  scale_fill_brewer(palette = "Accent") +
+  coord_flip() +
+  ylim(0,5)
+ggsave("./fig/lunceford_bis.pdf", width = 6, height = 5)
+```
+
+```{r}
+source("./estimators.R")
+```
+
+
+```{r}
+binned <- data.frame("estimate" = c(),
+                     "method" = c())
+
+
+for (i in 1:500){
+  simulation <- generate_lunceford(n = 1000, return_oracles = TRUE)
+  
+
+  ipw.10 <- binned_ipw(covariates_names_vector = paste0("X.", 1:3),
+                      dataframe =  simulation,
+                      nb.bin = 10)
+  ipw.20 <- binned_ipw(covariates_names_vector = paste0("X.", 1:3),
+                      dataframe =  simulation,
+                      nb.bin = 20)
+  ipw.30 <- binned_ipw(covariates_names_vector = paste0("X.", 1:3),
+                      dataframe =  simulation,
+                      nb.bin = 30)
+  ipw.40 <- binned_ipw(covariates_names_vector = paste0("X.", 1:3),
+                      dataframe =  simulation,
+                      nb.bin = 40)
+  
+  
+  new.row <- data.frame("estimate" = c(ipw.10, ipw.20, ipw.30, ipw.40),
+                     "method" = c("ipw.bin.10","ipw.bin.20","ipw.bin.30","ipw.bin.40"))
+  
+  binned <- rbind(binned, new.row)
+  
+}
+```
+
+
+
+```{r}
+binned <- rbind(binned, comparison.estimators[comparison.estimators$method %in% c("IPW oracle", "IPW - X", "AIPW - X"),])
+```
+
+```{r}
+ggplot(binned, aes(x = method, y = estimate, fill = method)) +
+  geom_boxplot(alpha = 0.9, show.legend = FALSE) +
+  theme_minimal() +
+  xlab("") +
+  ylab("ATE") +
+  geom_hline(yintercept = 2, linetype = "dashed", color = "red", alpha = 0.8, size = 0.8) +
+  theme(legend.title = element_blank(), legend.position = "bottom", 
+          legend.box = "horizontal", legend.text = element_text(size=10)) +
+  theme(axis.text = element_text(size=13, face = "bold"),
+           axis.title.x = element_text(size=14, face = "bold")) +
+  scale_fill_brewer(palette = "Accent") +
+  coord_flip() +
+  ylim(0,5)
+```
+
