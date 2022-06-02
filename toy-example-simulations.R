@@ -12,8 +12,8 @@ toy.examples.varying.n.m <- data.frame("n" = c(),
                                        "estimator" = c())
 
 
-for ( neff in seq(50, 1000, by = 50)){
-  for ( meff in seq(50, 1000, by = 50)){
+for ( neff in seq(50, 500, by = 5)){
+  for ( meff in seq(10, 300, by = 5)){
     
     print(paste0("Starting n = ", neff, " and m = ", meff))
     
