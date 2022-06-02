@@ -13,11 +13,11 @@ toy.examples.varying.n.m <- data.frame("n" = c(),
 
 
 for ( neff in seq(50, 500, by = 5)){
-  for ( meff in seq(10, 300, by = 5)){
+  for ( meff in seq(10, 200, by = 5)){
     
     print(paste0("Starting n = ", neff, " and m = ", meff))
     
-    for (rep in 1:300){
+    for (rep in 1:500){
       simulation <- toy.example(n = neff, 
                                 m = meff, 
                                 output.oracles = TRUE, 
