@@ -2,7 +2,7 @@
 title: "Covariate selection generalization"
 author:
   - Bénédicte Colnet [Inria, Paris-Saclay]
-date: "May 2022"
+date: "June 2022"
 output:
   html_document:
     code_folding: "hide"
@@ -21,198 +21,68 @@ knitr::opts_chunk$set(echo = TRUE)
 set.seed(123)
 
 # libraries
-library(MASS) # simulations
-library(ggplot2) # plots
-library(tidyr) # pivot longer or wider
-library(dplyr) # case_when and others
-library(mvtnorm)
-library(heplots) # variance covariance tests + viz
-library(genRCT) # package from Shu
+# library(MASS) # simulations
+# library(ggplot2) # plots
+# library(tidyr) # pivot longer or wider
+# library(dplyr) # case_when and others
+# library(mvtnorm)
+# library(heplots) # variance covariance tests + viz
+# library(genRCT) # package from Shu
+```
+
+
+```{r}
+library(MASS)
+
+source("./estimators.R")
+source("./generateDGPs.R")
+
+
+toy.examples.varying.n.m <- data.frame("n" = c(),
+                                       "m" = c(),
+                                       "estimate" = c(),
+                                       "estimator" = c())
+
+
+for ( neff in seq(20, 40, by = 20)){
+  for ( meff in seq(20, 40, by = 20)){
+    
+    print(paste0("Starting n = ", neff, " and m = ", meff))
+    
+    for (rep in 1:300){
+          simulation <- toy.example(n = neff, 
+                              m = meff, 
+                              output.oracles = TRUE, 
+                              symetric.po = FALSE,
+                              noisier.var.X1 = FALSE,
+                              prop.X1.RCT = 0.75,
+                              prop.X1.Target = 0.5,
+                              ATE.on.X1 = 10,
+                              factor.var = 0)
+    
+        # estimation
+        oracle.estimate <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = T, oracle.pr = T)
+        estimate.pr.only.estimate <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = T, oracle.pr = F)
+        ipsw.estimate <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = F, oracle.pr = F)
+        
+        # new row  
+        new.row <- data.frame("n" = rep(neff, 3), "m" = rep(meff, 3), "estimate" = c(oracle.estimate, estimate.pr.only.estimate, ipsw.estimate),  "estimator" = c("oracle", "semi-oracle", "ipsw"))
+        toy.examples.varying.n.m <- rbind(toy.examples.varying.n.m, new.row)
+    }
+  }
+}
+
+
+write.csv(toy.examples.varying.n.m, "./results/toy.example.varying.n.m.csv", row.names = TRUE)
+```
+
+
+```{r}
+
 ```
 
 
 # Toy example
-
-```{r}
-# toy simulation example in the spirit of Hirano & Imbens
-toy.example <- function(n = 1000, m = 1000, 
-                        ratio = 0.5, 
-                        output.oracles = TRUE,
-                        symetric.po = TRUE,
-                        var.Y = 2,
-                        noisier.var.X1 = TRUE,
-                        prop.X1.RCT = 0.75,
-                        prop.X1.Target = 0.5,
-                        ATE.on.X1 = 10,
-                        factor.var = 5){
-  
-  
-  X.RCT <- rbinom(n = n, 1, prop.X1.RCT)
-  X.obs <- rbinom(n = m, 1, prop.X1.Target)
-  
-  # random treatment assignment within the RCT / Bernoulli trial
-  treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
-  
-  output <- data.frame("X" = c(X.RCT, X.obs),
-                       "S" = c(rep(1, n), rep(0, m)),
-                       "A" = c(treat.assignment.in.RCT, rep(NA, m)))
-  
-  
-  if (symetric.po){
-    error_0 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
-    error_1 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
-    output$Y_0  = ifelse(output$X == 1, -ATE.on.X1/2, -2.5)
-    output$Y_0 <- output$Y_0 + error_0
-    output$Y_1  = ifelse(output$X == 1, ATE.on.X1/2, 2.5)
-    output$Y_1 <- output$Y_1 + error_1
-    
-  } else {
-    error_0 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
-    error_1 = rnorm(n = nrow(output), mean = 0, sd = var.Y)
-    output$Y_0  = ifelse(output$X == 1, 0, 0)
-    output$Y_0 <- output$Y_0 + error_0
-    output$Y_1  = ifelse(output$X == 1, ATE.on.X1, 5)
-    output$Y_1 <- output$Y_1 + error_1
-    
-  }
-  
-  if (noisier.var.X1){
-    error_sup_Y1 = rnorm(n = nrow(output), mean = 0, sd = factor.var*var.Y)
-    error_sup_Y0 = 0
-    output$Y_1  = ifelse(output$X == 1, output$Y_1 + error_sup_Y1,  output$Y_1)
-    output$Y_0  = ifelse(output$X == 1, output$Y_0 + error_sup_Y0,  output$Y_0)
-  }
-  
-  # observed outcome
-  output$Y <- ifelse(output$S == 1, ifelse(output$A == 1, output$Y_1, output$Y_0), NA)
-  
-  if(output.oracles){
-    
-    # add oracle quantities
-    output$e <- ifelse(output$S == 1, ratio, NA)
-    output$pt <- ifelse(output$S == 1, ifelse(output$X == 1, prop.X1.Target, (1-prop.X1.Target)), NA)
-    output$pr <- ifelse(output$S == 1, ifelse(output$X == 1, prop.X1.RCT, (1-prop.X1.RCT)), NA)
-    
-    
-
-  } else {
-    # keep only the interesting subset of covariates
-    output <- output[, c("X", "A", "Y", "S")]
-  }
-
-  return(output)
-  
-  
-}
-```
-
-```{r}
-difference.in.means <- function(dataframe, oracle.e.too = TRUE, estimand = "ATE"){
-  rct <- dataframe[dataframe$S == 1,]
-  Y = rct$Y
-  A = rct$A
-  
-  if (oracle.e.too){
-    e = rct[1, "e"]
-  } else {
-    e = mean(rct$A)
-  }
-  
-  # estimation
-  if (estimand == "ATE"){
-    estimate = mean(Y * (A/e - (1-A)/(1-e)))
-  } else if (estimand == "Y1") {
-    estimate = mean(Y *A/e)
-  }  else if (estimand == "Y0") {
-    estimate = mean(Y *(1-A)/(1-e))
-  } else {
-    print("Error in estimand, should be ATE, Y1, or Y0")
-    break
-    }
-  
-  return(estimate)
-}
-
-# ipsw which estimate the ratio estimator with univariate and categorical X
-ipsw.univariate.and.categorical.X <- function(dataframe, estimand = "ATE", oracle.e = F, oracle.pt = F, oracle.pr = F){
-  
-  # extract RCT and relevant quantities
-  rct <- dataframe[dataframe$S == 1,]
-  Y = rct$Y
-  A = rct$A
-  X = rct$X
-  
-  if (oracle.e){
-    e.hat.X1 = 0.5
-    e.hat.X0 = 0.5
-    
-  } else {
-    e.hat.X1 = mean(rct[rct$X == 1, "A"])
-    e.hat.X0 = mean(rct[rct$X == 0, "A"])
-  }
-  
-  
-  e.hat <- ifelse(rct$X == 1, e.hat.X1, e.hat.X0)
-  
-  if (!oracle.pt & !oracle.pr){
-    
-    r.X.1 <- mean(dataframe[dataframe$S == 0, "X"]) / mean(dataframe[dataframe$S == 1, "X"])
-    r.X.0 <- (1- mean(dataframe[dataframe$S == 0, "X"]))/ (1-mean(dataframe[dataframe$S == 1, "X"]))
-    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
-    
-  } else if (!oracle.pt & oracle.pr){
-    
-    if(!("pr" %in% colnames(dataframe)) ) {
-        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
-      break
-    }
-    
-    r.X.1 <- mean(dataframe[dataframe$S == 0, "X"]) / rct[rct$X == 1, "pr"][[1]]
-    r.X.0 <- (1- mean(dataframe[dataframe$S == 0, "X"]))/   rct[rct$X == 0, "pr"][[1]]
-    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
-    
-  } else if  (oracle.pt & !oracle.pr){
-    
-    if(!("pt" %in% colnames(dataframe))) {
-        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
-      break
-    }
-    
-    r.X.1 <- rct[rct$X == 1, "pt"][[1]] / mean(dataframe[dataframe$S == 1, "X"])
-    r.X.0 <-  rct[rct$X == 0, "pt"][[1]] / (1-mean(dataframe[dataframe$S == 1, "X"]))
-    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
-    
-  } else { # full oracle
-    
-    if(!("pt" %in% colnames(dataframe)) | !("pr" %in% colnames(dataframe)) ) {
-        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
-      break
-    }
-    
-    r.X <- rct$pt /  rct$pr
-    
-  }
-  
-  mean.Y1 = mean(A*Y*r.X/e.hat)
-  mean.Y0 = mean((1-A)*Y*r.X/(1-e.hat))
-  
-  # estimation
-  if (estimand == "ATE"){
-    estimate = mean.Y1 - mean.Y0
-  } else if (estimand == "Y1") {
-    estimate = mean.Y1
-  }  else if (estimand == "Y0") {
-    estimate = mean.Y0
-  } else {
-    print("Error in estimand, should be ATE, Y1, or Y0")
-    break
-    }
-  
-  
-  return(estimate)
-}
-```
-
 
 
 ```{r}
@@ -271,6 +141,11 @@ ggplot(simulation.toy.example.for.plot, aes(X, group = S)) +
   xlab("X") 
 ggsave("./fig/toy_example_covariate_shift.pdf", width = 3, height = 3)
 ```
+
+
+
+
+
 
 ```{r}
 toy.example.simulations.m.varies <- data.frame("estimate" = c(),
