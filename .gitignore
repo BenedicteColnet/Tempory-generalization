@@ -3,3 +3,6 @@
 
 # Ignore node_modules folder
 node_modules
+
+# Ignore results and all data in general
+*.csv
