@@ -12,8 +12,8 @@ toy.examples.varying.n.m <- data.frame("n" = c(),
                                        "estimator" = c())
 
 
-for ( neff in seq(50, 200, by = 10)){
-  for ( meff in seq(5, 50, by = 5)){
+for ( neff in seq(50, 200, by = 20)){
+  for ( meff in seq(5, 50, by = 10)){
     
     print(paste0("Starting n = ", neff, " and m = ", meff))
     
@@ -23,8 +23,6 @@ for ( neff in seq(50, 200, by = 10)){
                                 output.oracles = TRUE, 
                                 symetric.po = FALSE,
                                 noisier.var.X1 = FALSE,
-                                prop.X1.RCT = 0.75,
-                                prop.X1.Target = 0.5,
                                 ATE.on.X1 = 10,
                                 factor.var = 0)
       
