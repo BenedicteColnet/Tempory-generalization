@@ -17,7 +17,7 @@ for ( neff in seq(50, 200, by = 20)){
     
     print(paste0("Starting n = ", neff, " and m = ", meff))
     
-    for (rep in 1:1000){
+    for (rep in 1:5000){
       simulation <- toy.example(n = neff, 
                                 m = meff, 
                                 output.oracles = TRUE, 
