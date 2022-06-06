@@ -4,7 +4,7 @@ difference.in.means <- function(dataframe, oracle.e.too = TRUE, estimand = "ATE"
   A = rct$A
   
   if (oracle.e.too){
-    e = rct[1, "e"]
+    e = 0.5
   } else {
     e = mean(rct$A)
   }
@@ -100,6 +100,71 @@ ipsw.univariate.and.categorical.X <- function(dataframe, estimand = "ATE", oracl
     break
   }
   
+  
+  return(estimate)
+}
+
+
+ipsw.binned <- function(dataframe,
+                        covariates_names_vector,
+                        outcome_name = "Y",
+                        treatment_name = "A",  
+                        oracle.e = T, 
+                        oracle.pt = F, 
+                        oracle.pr = F
+){
+  
+  RCT <- dataframe[dataframe$S == 1,]
+  n = nrow(RCT)
+  
+  Obs <- dataframe[dataframe$S == 0,]
+  m = nrow(Obs)
+  
+  if(!oracle.pt){
+    
+    # remove oracle if any in RCT
+    RCT = RCT[,!(names(RCT) %in% c("pt"))]
+    
+    # Obs - count proportion of each of the covariates
+    pt.hat <-  Obs %>% 
+      group_by(across(covariates_names_vector)) %>%
+      summarise(pt = n()/m)
+    
+    # add the estimates in the table
+    RCT <- merge(RCT, pt.hat, by = covariates_names_vector)
+    
+  }
+  
+  if(!oracle.pr){
+    
+    # remove oracle if any in RCT
+    RCT = RCT[,!(names(RCT) %in% c("pr"))]
+    
+    # RCT - count proportion of each of the covariates
+    pr.hat <-  RCT %>% 
+      group_by(across(covariates_names_vector)) %>%
+      summarise(pr = n()/n)
+    
+    # add the estimates in the table
+    RCT <- merge(RCT, pr.hat, by = covariates_names_vector)
+  }
+  
+  
+  Y = RCT$Y
+  A = RCT$A
+  r <- RCT$pt / RCT$pr
+  
+  if (oracle.e){
+    
+    e = unique(RCT$e)[[1]]
+    
+  } else {
+    print("careful, not implemented yet")
+  }
+  
+  
+  estimate <- Y*r*( (A/e) - (1-A)/(1-e))
+  estimate <- sum(estimate)/n
   
   return(estimate)
 }
