@@ -16,8 +16,8 @@ additional.covariates.varying.n.m <- data.frame("n" = c(),
                                        "subset" = c())
 
 
-for ( neff in seq(100, 1000, by = 100)){
-  for ( meff in seq(50, 300, by = 50)){
+for ( neff in seq(200, 1000, by = 200)){
+  for ( meff in seq(100, 500, by = 100)){
     
     for (subset in c("minimal", 'add.shifted', "add.useless")){
       
