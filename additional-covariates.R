@@ -54,4 +54,4 @@ for ( neff in seq(200, 1000, by = 200)){
 }
 
 
-write.csv(additional.covariates.varying.n.m, "./additional.covariates.varying.n.m.csv", row.names = TRUE)
+write.csv(additional.covariates.varying.n.m, "./results/additional.covariates.varying.n.m.csv", row.names = TRUE)
