@@ -30,9 +30,9 @@ oracle.proba.target <- source.Obs %>%
   summarise(pt = n()/nrow(source.Obs))
 
 
-for (neff in c(500, 1000, 5000)){
+for (neff in seq(500, 3000, by = 500)){
   
-  for (meff in c(500, 5000, 10000)){
+  for (meff in seq(500, 5000, by = 500)){
     
     print(paste0("Starting n = ", neff, " and m = ", meff))
     
