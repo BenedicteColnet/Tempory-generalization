@@ -233,6 +233,6 @@ ggplot(total.with.overlap, aes(x = systolicBloodPressure.categorized, group = S,
 # Saving the data 
 
 ```{r}
-save(total.with.overlap, file = "./data/semi-synthetic-DGP.Rdata")
+save(total.with.overlap, file = "./data/semi-synthetic-DGP.rds")
 ```
 
