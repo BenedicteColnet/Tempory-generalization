@@ -66,11 +66,16 @@ toy.example <- function(n = 1000, m = 1000,
   return(output)
 }
 
+
+# this is an extension of the toy example with multiple covariates
 simulation.multivariate.categorical.X <- function(n = 1000, m = 1000, 
                                                   ratio = 0.5, 
                                                   output.oracles = TRUE,
                                                   prop.X1.RCT = 0.75,
-                                                  prop.X1.Target = 0.3){
+                                                  prop.X1.Target = 0.3,
+                                                  prop.X2 = 0.5,
+                                                  prop.X3.RCT = 0.1,
+                                                  prop.X3.Target = 0.9){
   
   
   
@@ -79,20 +84,22 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
   X1.obs <- rbinom(n = m, 1, prop.X1.Target)
   
   # X2 -- the covariate explaining nothing and not shifted
-  X2.RCT <- rbinom(n = n, 1, 0.1)
-  X2.obs <- rbinom(n = m, 1, 0.1)
+  X2.RCT <- rbinom(n = n, 1, prop.X2)
+  X2.obs <- rbinom(n = m, 1, prop.X2)
+
+  # X3 -- the covariate explaining nothing but shifted between the two sources
+  X3.RCT <- rbinom(n = n, 1, prop.X3.RCT)
+  X3.obs <- rbinom(n = m, 1, prop.X3.Target)
   
-  # X3 -- the covariate explaining Y but not shifted
-  X3.RCT <- rbinom(n = n, 1, 0.2)
-  X3.obs <- rbinom(n = m, 1, 0.2)
+  # # X3 -- the covariate explaining Y but not shifted
+  # X3.RCT <- rbinom(n = n, 1, 0.2)
+  # X3.obs <- rbinom(n = m, 1, 0.2)
+  # 
   
-  # X4 -- strongly shifted covariates, but not effect on Y at all
-  X4.RCT <- rbinom(n = n, 1, 0.2)
-  X4.obs <- rbinom(n = m, 1, 0.7)
-  
-  # X5 -- the covariate explaining Y and shifted
-  X5.RCT <- rbinom(n = n, 1, 0.2)
-  X5.obs <- rbinom(n = m, 1, 0.8)
+  # 
+  # # X5 -- the covariate explaining Y and shifted
+  # X5.RCT <- rbinom(n = n, 1, 0.2)
+  # X5.obs <- rbinom(n = m, 1, 0.8)
   
   # random treatment assignment within the RCT / Bernoulli trial
   treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
@@ -100,8 +107,6 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
   output <- data.frame("X1" = c(X1.RCT, X1.obs),
                        "X2" = c(X2.RCT, X2.obs),
                        "X3" = c(X3.RCT, X3.obs),
-                       "X4" = c(X4.RCT, X4.obs),
-                       "X5" = c(X5.RCT, X5.obs),
                        "S" = c(rep(1, n), rep(0, m)),
                        "A" = c(treat.assignment.in.RCT, rep(NA, m)))
   
@@ -118,11 +123,16 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
   error_1_X5 = rnorm(n = nrow(output), mean = 0, sd = 1)
   
   
-  Y_0 <- ifelse(output$X1 == 1, 0, 0) + ifelse(output$X3 == 1, 100 + error_0_X3, error_0_X3) + ifelse(output$X5 == 1, -100 + error_0_X5, error_0_X5)
-  output$Y_0 <- Y_0 + error_0
-  Y_1 <- ifelse(output$X1 == 1, 10, 5) +  ifelse(output$X3 == 1, 100 + error_1_X3 , error_1_X3) + ifelse(output$X5 == 1, -100 + error_1_X5, error_1_X5)
-  output$Y_1 <- Y_1 + error_1
+  # Y_0 <- ifelse(output$X1 == 1, 0, 0) + ifelse(output$X3 == 1, 100 + error_0_X3, error_0_X3) + ifelse(output$X5 == 1, -100 + error_0_X5, error_0_X5)
+  # output$Y_0 <- Y_0 + error_0
+  # Y_1 <- ifelse(output$X1 == 1, 10, 5) +  ifelse(output$X3 == 1, 100 + error_1_X3 , error_1_X3) + ifelse(output$X5 == 1, -100 + error_1_X5, error_1_X5)
+  # output$Y_1 <- Y_1 + error_1
   
+  Y_0 <- ifelse(output$X1 == 1, 0, 0)
+  output$Y_0 <- Y_0 + error_0
+  Y_1 <- ifelse(output$X1 == 1, 10, 5)
+  output$Y_1 <- Y_1 + error_1
+
   
   # observed outcome
   output$Y <- ifelse(output$S == 1, ifelse(output$A == 1, output$Y_1, output$Y_0), NA)
@@ -131,17 +141,79 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
     
     # add oracle quantities
     output$e <- ifelse(output$S == 1, ratio, NA)
-    output$pt <- ifelse(output$X1 == 1, prop.X1.Target, 1-prop.X1.Target)
-    output$pt <- ifelse(output$S == 1, output$pt, NA)
-    output$pr <- ifelse(output$X1 == 1, prop.X1.RCT,  1-prop.X1.RCT)
-    output$pr <- ifelse(output$S == 1, output$pr, NA)
+    
+    output$pt <- case_when(output$X1 == 1 & output$X3 == 1 ~ prop.X1.Target*prop.X3.Target,
+                           output$X1 == 1 & output$X3 == 0 ~ prop.X1.Target*(1-prop.X3.Target),
+                           output$X1 == 0 & output$X3 == 1 ~ (1-prop.X1.Target)*prop.X3.Target,
+                           output$X1 == 0 & output$X3 == 0 ~ (1-prop.X1.Target)*(1-prop.X3.Target))
+
+    output$pr <- case_when(output$X1 == 1 & output$X3 == 1 ~ prop.X1.RCT*prop.X3.RCT,
+                           output$X1 == 1 & output$X3 == 0 ~ prop.X1.RCT*(1-prop.X3.RCT),
+                           output$X1 == 0 & output$X3 == 1 ~ (1-prop.X1.RCT)*prop.X3.RCT,
+                           output$X1 == 0 & output$X3 == 0 ~ (1-prop.X1.RCT)*(1-prop.X3.RCT))
+
+      output$pt <- ifelse(output$S == 1, output$pt, NA)
+      output$pr <- ifelse(output$S == 1, output$pr, NA)
     
     
     
   } else {
     # keep only the interesting subset of covariates
-    output <- output[, c("X1", "X2", "X3", "X4", "X5", "A", "Y", "S")]
+    output <- output[, c("X1", "X2", "X3", "A", "Y", "S")]
   }
   
   return(output)
 }
+
+
+simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.oracles = TRUE, extra.noise.on.high.ttt = FALSE){
+  
+  # load source data
+  source.data <- load("./data/semi-synthetic-DGP.rds")
+  
+  # sample from the two distributions
+  source.RCT <- total.with.overlap[total.with.overlap$S == 1,]
+  source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
+  
+  RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = TRUE), ]
+  Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = TRUE), ]
+  
+  total <- rbind(RCT, Obs)
+  total <- as.data.frame(total)
+  
+  
+  # Outcome model
+  baseline <- (20 - total$Glasgow.initial) + 2*total$pupilReact_num - 2*(total$systolicBloodPressure.categorized-2)^2 - 2*total$age.categorized + 3*total$gender
+  cate <- ifelse(total$Glasgow.initial < 5, -3, (10-4*total$time_to_treatment.categorized) ) + 3*(16 - total$Glasgow.initial) - 2*total$time_to_treatment.categorized
+  
+  
+  total$Y_0 = as.vector(rnorm(n+m,  mean = baseline, sd = rep(1, n+m)))
+  total$Y_1 =  as.vector(rnorm(n+m,  mean = baseline + cate, sd = rep(1, n+m)))
+  
+  if(extra.noise.on.high.ttt){
+    extra.noise <- rnorm(n+m,  mean = 0, sd = rep(1, n+m))*time_to_treatment.categorized
+    total$Y_0 <- total$Y_0 + extra.noise
+    total$Y_1 <- total$Y_1 + extra.noise
+  }
+  
+  # random treatment assignment within the RCT / Bernoulli trial
+  treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
+  
+  A = c(treat.assignment.in.RCT, rep(NA, m))
+  total$A <- A
+  
+  # observed outcome
+  total$Y <- ifelse(total$S == 1, ifelse(total$A == 1, total$Y_1, total$Y_0), NA)
+  
+  
+  if(!output.oracles){
+    
+    # remove potential outcomes
+    output <- output[, c(names(RCT), "A", "Y")]
+    
+  }
+  
+  return(total)
+  
+}
+
