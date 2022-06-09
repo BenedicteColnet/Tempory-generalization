@@ -111,8 +111,9 @@ ipsw.binned <- function(dataframe,
                         treatment_name = "A",  
                         oracle.e = T, 
                         oracle.pt = F, 
-                        oracle.pr = F
-){
+                        oracle.pr = F,
+                        oracle.pt.data = NULL,
+                        oracle.pr.data = NULL){
   
   RCT <- dataframe[dataframe$S == 1,]
   n = nrow(RCT)

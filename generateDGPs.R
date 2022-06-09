@@ -183,16 +183,15 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   
   
   # Outcome model
-  baseline <- (20 - total$Glasgow.initial) + 2*total$pupilReact_num - 2*(total$systolicBloodPressure.categorized-2)^2 - 2*total$age.categorized + 3*total$gender
-  cate <- ifelse(total$Glasgow.initial < 5, -3, (10-4*total$time_to_treatment.categorized) ) + 3*(16 - total$Glasgow.initial) - 2*total$time_to_treatment.categorized
+  baseline <- (20 - total$Glasgow.initial) + 2*total$pupilReact_num - 2*(total$systolicBloodPressure.categorized-2)^2 - 2*total$age.categorized 
+  cate <- 1*total$Glasgow.initial/15 - 4*total$time_to_treatment.categorized
   
   
   total$Y_0 = as.vector(rnorm(n+m,  mean = baseline, sd = rep(1, n+m)))
   total$Y_1 =  as.vector(rnorm(n+m,  mean = baseline + cate, sd = rep(1, n+m)))
   
   if(extra.noise.on.high.ttt){
-    extra.noise <- rnorm(n+m,  mean = 0, sd = rep(1, n+m))*time_to_treatment.categorized
-    total$Y_0 <- total$Y_0 + extra.noise
+    extra.noise <- rnorm(n+m,  mean = 0, sd = rep(1, n+m))*5*total$time_to_treatment.categorized 
     total$Y_1 <- total$Y_1 + extra.noise
   }
   
@@ -204,6 +203,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   
   # observed outcome
   total$Y <- ifelse(total$S == 1, ifelse(total$A == 1, total$Y_1, total$Y_0), NA)
+  total$e <- rep(0.5, nrow(total))
   
   
   if(!output.oracles){
