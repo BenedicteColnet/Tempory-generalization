@@ -113,6 +113,16 @@ imputed_traumabase <- imputed_traumabase[, c("time_to_treatment", "gender", "age
 
 # Bind the two 
 
+Trial data contains missing values.
+
+
+```{r}
+nrow(CRASH3)
+CRASH3 <- na.omit(CRASH3)
+nrow(CRASH3)
+```
+
+
 
 ```{r}
 imputed_traumabase$S <- rep(0, nrow(imputed_traumabase))
