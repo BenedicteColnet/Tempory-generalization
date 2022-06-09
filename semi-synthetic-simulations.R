@@ -54,7 +54,7 @@ for (neff in seq(500, 3000, by = 500)){
       
       new.row <- data.frame("estimate" = c(oracle, semi.oracle, ipsw.estimate, naive.estimate),
                             "n" = rep(neff,4),
-                            "m" = rep(neff, 4),
+                            "m" = rep(meff, 4),
                             "method" = c("oracle", "semi-oracle", "ipsw", "naive"))
       semi.synthetic.simulations <- rbind(semi.synthetic.simulations, new.row)
       
