@@ -1,0 +1,238 @@
+---
+title: "Notebook preparing semi-synthetic data for simulation"
+author:
+  - Bénédicte Colnet [Inria, Paris-Saclay]
+date: "June 2022"
+output:
+  html_document:
+    code_folding: "hide"
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+  pdf_document:
+    toc: yes
+abstract: | 
+  This script is used only once to prepare the semi-synthetic simulation where the covariates mimic a real-life case for traumatic brain injured patients using data from CRASH-3 and the Traumabase.
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = FALSE, verbose = FALSE, message=FALSE, warning=FALSE)
+
+# Set random generator seed for reproducible results
+set.seed(123)
+
+# Libraries
+library(readxl) # Read xlsx
+library(dplyr)
+library(ggplot2)
+library(scales) # for the bar plot with the percentage
+```
+
+# Load CRASH-3 data (RCT)
+
+```{r, message=F, results='hide'}
+# Load CRASH3 data
+rawData_CRASH3 <- read_xlsx("~/Documents/data/crash/crash-data/crash3/CRASH-3_dataset_anonymised_for_Freebird.xlsx", na =c("", "NR", "NA", "NF","IMP", "ND"),)
+```
+
+
+```{r}
+print(paste0("Raw CRASH-3 data contains following number of eligible observations: ", nrow(rawData_CRASH3[rawData_CRASH3$eligible == "Yes",])))
+
+# keep only eligible patients
+rawData_CRASH3 <- rawData_CRASH3[rawData_CRASH3$eligible == "Yes",]
+```
+
+
+
+```{r}
+# major extracranial
+rawData_CRASH3$majorExtracranial <- ifelse(rawData_CRASH3$majorExtracranial == "Yes", 1, 0) 
+
+# GSC
+rawData_CRASH3$Glasgow.initial <- as.numeric(substring(rawData_CRASH3$gcsEyeOpening, 1, 1)) + 
+                                 as.numeric(substring(rawData_CRASH3$gcsMotorResponse, 1, 1)) +
+                                 as.numeric(substring(rawData_CRASH3$gcsVerbalResponse, 1, 1))
+ 
+# Women (1) and men (0)
+rawData_CRASH3$gender <- ifelse(rawData_CRASH3$sex == "Female", 1, 0)
+
+# Pupil reactivity
+rawData_CRASH3$pupilReact_num <- case_when(rawData_CRASH3$pupilReact == "Both React" ~ 2,
+                                           rawData_CRASH3$pupilReact == "One Reacts" ~ 1,
+                                           rawData_CRASH3$pupilReact == "None React" ~ 0,
+                                           rawData_CRASH3$pupilReact == "Unable to assess" ~ -1) 
+```
+
+```{r}
+# Time between injury and treatment
+## data treatement from string to numeric hours and minutes
+rawData_CRASH3$timeSinceInjury_h = format(as.POSIXct(rawData_CRASH3$timeSinceInjury, format="%Y-%m-%d %H:%M"), format="%H")
+rawData_CRASH3$timeSinceInjury_h <- as.numeric(rawData_CRASH3$timeSinceInjury_h)
+rawData_CRASH3$timeSinceInjury_m = format(as.POSIXct(rawData_CRASH3$timeSinceInjury, format="%Y-%m-%d %H:%M"), format="%M")
+rawData_CRASH3$timeSinceInjury_m <- as.numeric(rawData_CRASH3$timeSinceInjury_m)
+rawData_CRASH3$time_to_treatment <- rawData_CRASH3$timeSinceInjury_h*60 + rawData_CRASH3$timeSinceInjury_m
+```
+
+
+```{r}
+CRASH3 <- rawData_CRASH3[, c("time_to_treatment", "gender", "age", "pupilReact_num",  "Glasgow.initial", "systolicBloodPressure")]
+```
+
+# Load Target population data data (Observational)
+
+Note that this data have previously been imputed due to missing values.
+
+
+```{r}
+# load already imputed data 
+load("~/Documents/data/traumabase/data/traumabase_tbideath_tbi_imputed_mice.RData")
+imputed_traumabase <- df.imp.mice[[1]]
+
+names(imputed_traumabase)[names(imputed_traumabase) == "sexe"] <- "gender"
+
+print(paste0("Raw traumabase data contains following number of observations: ", nrow(imputed_traumabase)))
+```
+
+
+```{r}
+# create time to treatment covariates following a beta law
+simulated_time_to_treatment <- rbeta(nrow(imputed_traumabase), 2, 5, ncp = 0)*250
+hist(simulated_time_to_treatment)
+
+
+imputed_traumabase$time_to_treatment <- simulated_time_to_treatment
+```
+
+
+
+```{r}
+imputed_traumabase <- imputed_traumabase[, c("time_to_treatment", "gender", "age", "pupilReact_num",  "Glasgow.initial", "systolicBloodPressure")]
+```
+
+
+# Bind the two 
+
+
+```{r}
+imputed_traumabase$S <- rep(0, nrow(imputed_traumabase))
+CRASH3$S <- rep(1, nrow(CRASH3))
+
+total <- rbind(imputed_traumabase, CRASH3)
+```
+
+
+# Categorization of the continuous covariates
+
+We need to make categorical some of the covariates that are initially categorical, namely:
+- Age
+- Systolic Blood Pressure
+- Time to treatment
+
+We also lower a bit the granularity of Glasgow score.
+
+
+```{r}
+total$age.categorized <- case_when(total$age < 30 ~ 1,
+                                total$age >= 30 &  total$age < 50 ~ 2,
+                                total$age >= 50 &  total$age < 60 ~ 3,
+                                total$age >= 60 ~ 4)
+
+
+total$systolicBloodPressure.categorized <- case_when(total$systolicBloodPressure < 100 ~ 1,
+                                total$systolicBloodPressure >= 100 &  total$systolicBloodPressure < 200 ~ 2,
+                                total$systolicBloodPressure >= 200 ~ 3)
+
+
+total$time_to_treatment.categorized <- case_when(total$time_to_treatment < 30 ~ 1,
+                                total$time_to_treatment >= 30 &  total$time_to_treatment < 60 ~ 2,
+                                total$time_to_treatment >= 60 &  total$time_to_treatment < 90 ~ 3,
+                                total$time_to_treatment >= 90 &  total$time_to_treatment < 150 ~ 4,
+                                total$time_to_treatment >= 150 ~ 5)
+
+
+
+total$Glasgow.initial <- ifelse(total$Glasgow.initial < 4, 3, total$Glasgow.initial)
+total$Glasgow.initial <- ifelse(total$Glasgow.initial >13, 14, total$Glasgow.initial)
+```
+
+
+# Sanity check: Is overlap ensured?
+
+
+We can count how many observations fall in each categories.
+
+```{r}
+count.observations.in.each.strata.trial <- total[total$S == 1,] %>% group_by(time_to_treatment.categorized, Glasgow.initial, systolicBloodPressure.categorized, age.categorized, gender, pupilReact_num) %>%
+  summarise(n())
+
+count.observations.in.each.strata.target <- total[total$S == 0,] %>% group_by(time_to_treatment.categorized, Glasgow.initial, systolicBloodPressure.categorized, age.categorized, gender, pupilReact_num) %>%
+  summarise(n())
+```
+
+
+What are the most represented categories in each population?
+
+- In Traumabase, many men, with relative high Glasgow score and good pupils reactivity.
+- In trial, same but treated later and a bit more women
+
+
+```{r}
+count.observations.in.each.strata.target[count.observations.in.each.strata.target$`n()` > 0.2*max(count.observations.in.each.strata.target$`n()`), ]
+
+count.observations.in.each.strata.trial[count.observations.in.each.strata.trial$`n()` > 0.2*max(count.observations.in.each.strata.trial$`n()`), ]
+```
+
+
+
+```{r}
+# keep only the data for which we have overlap
+total.with.overlap <- left_join(count.observations.in.each.strata.trial, total, by = c('time_to_treatment.categorized', 'Glasgow.initial', 'systolicBloodPressure.categorized', 'age.categorized', 'gender', 'pupilReact_num'), all.y = FALSE, all.x = TRUE)
+
+
+total.with.overlap <- total.with.overlap[, c('time_to_treatment.categorized', 'Glasgow.initial', 'systolicBloodPressure.categorized', 'age.categorized', 'gender', 'pupilReact_num', 'time_to_treatment', 'age', 'systolicBloodPressure', 'S')]
+```
+
+Keeping only observations with overlap leads to a loss of `r nrow(total) - nrow(total.with.overlap)` observations. At the end the final data set contains `r nrow(total.with.overlap)` observations.
+
+```{r}
+table(total.with.overlap$S)
+```
+
+# Looking a bit more on the data
+
+
+```{r}
+ggplot(total.with.overlap, aes(x = time_to_treatment.categorized, group = S, fill = S)) +
+  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
+  scale_y_continuous(labels = percent_format()) +
+  theme_classic()
+
+
+ggplot(total.with.overlap, aes(x = age.categorized, group = S, fill = S)) +
+  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
+  scale_y_continuous(labels = percent_format()) +
+  theme_classic()
+
+ggplot(total.with.overlap, aes(x = pupilReact_num, group = S, fill = S)) +
+  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
+  scale_y_continuous(labels = percent_format()) +
+  theme_classic()
+
+ggplot(total.with.overlap, aes(x = gender, group = S, fill = S)) +
+  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
+  scale_y_continuous(labels = percent_format()) +
+  theme_classic()
+
+ggplot(total.with.overlap, aes(x = systolicBloodPressure.categorized, group = S, fill = S)) +
+  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
+  scale_y_continuous(labels = percent_format()) +
+  theme_classic()
+```
+
+# Saving the data 
+
+```{r}
+save(total.with.overlap, file = "./data/semi-synthetic-DGP.Rdata")
+```
+
