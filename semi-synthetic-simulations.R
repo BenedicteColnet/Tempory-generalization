@@ -30,11 +30,13 @@ oracle.proba.target <- source.Obs %>%
   summarise(pt = n()/nrow(source.Obs))
 
 
-for (i in 1:500){
+for (neff in c(500, 1000, 5000)){
   
   for (meff in c(500, 5000, 10000)){
     
-    for (neff in c(500, 1000, 5000)){
+    print(paste0("Starting n = ", neff, " and m = ", meff))
+    
+    for (i in 1:500){ 
       
       simulation <- simulation.semi.synthetic(n = neff, m = meff, output.oracles = TRUE, extra.noise.on.high.ttt = T)
       
