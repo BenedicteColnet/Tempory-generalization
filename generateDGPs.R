@@ -21,8 +21,8 @@ toy.example <- function(n = 1000, m = 1000,
   
   
   X.obs <- rbinom(n = m, 1, prop.X1.Target)
-  
-  # deal with situation where the randomness leaded to not all X on trial
+
+  # deal with situation where the randomness leaded to not all X on observational data
   while(mean(X.obs) == 0 | mean(X.obs) == 1){
     print(paste0("Issue with mean(X.Obs): ", mean(X.obs)))
     X.obs <- rbinom(n = m, 1, prop.X1.Target)
