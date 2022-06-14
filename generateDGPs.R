@@ -14,8 +14,8 @@ toy.example <- function(n = 1000, m = 1000,
   X.RCT <- rbinom(n = n, 1, prop.X1.RCT)
   
   # deal with situation where the randomness leaded to not all X on trial
-  while(mean(X.RCT) != 0 | mean(X.RCT) != 1){
-    print("No all X on RCT, relaunch")
+  while(mean(X.RCT) == 0 | mean(X.RCT) == 1){
+    print(paste0("Issue with mean(X.RCT): ", mean(X.RCT)))
     X.RCT <- rbinom(n = n, 1, prop.X1.RCT)
   }
   
@@ -23,17 +23,17 @@ toy.example <- function(n = 1000, m = 1000,
   X.obs <- rbinom(n = m, 1, prop.X1.Target)
   
   # deal with situation where the randomness leaded to not all X on trial
-  while(mean(X.obs) != 0 | mean(X.obs) != 1){
-    print("No all X on RCT, relaunch")
-    .obs <- rbinom(n = m, 1, prop.X1.Target)
+  while(mean(X.obs) == 0 | mean(X.obs) == 1){
+    print(paste0("Issue with mean(X.Obs): ", mean(X.obs)))
+    X.obs <- rbinom(n = m, 1, prop.X1.Target)
   }
   
   # random treatment assignment within the RCT / Bernoulli trial
   treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
   
   # deal with situation where the randomness leaded to no overlap on trial
-  while(mean(treat.assignment.in.RCT) != 0 | mean(treat.assignment.in.RCT) != 1){
-    print("Super small trial!")
+  while(mean(treat.assignment.in.RCT) == 0 | mean(treat.assignment.in.RCT) == 1){
+    print(paste0("Issue with mean(treat.assignment.in.RCT): ", mean(treat.assignment.in.RCT)))
     treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
   }
   
