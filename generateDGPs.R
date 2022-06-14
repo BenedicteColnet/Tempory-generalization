@@ -12,10 +12,30 @@ toy.example <- function(n = 1000, m = 1000,
   
   
   X.RCT <- rbinom(n = n, 1, prop.X1.RCT)
+  
+  # deal with situation where the randomness leaded to not all X on trial
+  while(mean(X.RCT) != 0 | mean(X.RCT) != 1){
+    print("No all X on RCT, relaunch")
+    X.RCT <- rbinom(n = n, 1, prop.X1.RCT)
+  }
+  
+  
   X.obs <- rbinom(n = m, 1, prop.X1.Target)
+  
+  # deal with situation where the randomness leaded to not all X on trial
+  while(mean(X.obs) != 0 | mean(X.obs) != 1){
+    print("No all X on RCT, relaunch")
+    .obs <- rbinom(n = m, 1, prop.X1.Target)
+  }
   
   # random treatment assignment within the RCT / Bernoulli trial
   treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
+  
+  # deal with situation where the randomness leaded to no overlap on trial
+  while(mean(treat.assignment.in.RCT) != 0 | mean(treat.assignment.in.RCT) != 1){
+    print("Super small trial!")
+    treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
+  }
   
   output <- data.frame("X" = c(X.RCT, X.obs),
                        "S" = c(rep(1, n), rep(0, m)),
@@ -62,6 +82,7 @@ toy.example <- function(n = 1000, m = 1000,
     # keep only the interesting subset of covariates
     output <- output[, c("X", "A", "Y", "S")]
   }
+
   
   return(output)
 }
@@ -186,9 +207,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   baseline <- (20 - total$Glasgow.initial) + 2*total$pupilReact_num - 2*(total$systolicBloodPressure.categorized-2)^2 - 2*total$age.categorized 
   cate <- 1*total$Glasgow.initial/15 - 4*total$time_to_treatment.categorized
   
-  
-  total$Y_0 = as.vector(rnorm(n+m,  mean = baseline, sd = rep(1, n+m)))
-  total$Y_1 =  as.vector(rnorm(n+m,  mean = baseline + cate, sd = rep(1, n+m)))
+  total$Y_0 = baseline + rnorm(n+m,  mean = 0, sd = 1)
+  total$Y_1 =  baseline + cate + rnorm(n+m,  mean = 0, sd = 1)
   
   if(extra.noise.on.high.ttt){
     extra.noise <- rnorm(n+m,  mean = 0, sd = rep(1, n+m))*5*total$time_to_treatment.categorized 

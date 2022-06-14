@@ -25,8 +25,12 @@ difference.in.means <- function(dataframe, oracle.e.too = TRUE, estimand = "ATE"
 }
 
 
-# ipsw which estimate the ratio estimator with univariate and categorical X
-ipsw.univariate.and.categorical.X <- function(dataframe, estimand = "ATE", oracle.e = F, oracle.pt = F, oracle.pr = F){
+# toy example: ipsw estimating the ratio estimator with univariate and binary X
+ipsw.univariate.and.categorical.X <- function(dataframe, 
+                                              estimand = "ATE", 
+                                              oracle.e = F, 
+                                              oracle.pt = F, 
+                                              oracle.pr = F){
   
   # extract RCT and relevant quantities
   rct <- dataframe[dataframe$S == 1,]
