@@ -38,7 +38,7 @@ for (i in 1:200){
     }
     
     
-    for (neff in c(3000)){
+    for (neff in c(1000)){
       for (meff in c(10000)){
         
         for (pteff in c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)){
