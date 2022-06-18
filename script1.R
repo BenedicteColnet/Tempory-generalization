@@ -25,7 +25,16 @@ semi.synthetic.minimal <- data.frame("estimate" = c(),
                                      "m" = c(),
                                      "n" = c())
 
-for (i in 1:1){
+for (i in 1:1000){
+  
+  if(i == 100){
+    print("i=100")
+  }
+  
+  if(i == 500){
+    print("i=500")
+  }
+  
   
   for (additional.noise in c(T, F)){
     
