@@ -26,21 +26,21 @@ semi.synthetic.minimal <- data.frame("estimate" = c(),
                                      "m" = c(),
                                      "n" = c())
 
-for (i in 1:300){
+for (i in 1:5000){
   
-  if(i == 100){
-    print("i=100")
+  if(i == 1000){
+    print("i=1000")
   }
   
-  if(i == 500){
-    print("i=500")
+  if(i == 2500){
+    print("i=2500")
   }
   
   
   for (additional.noise in c(T, F)){
     
-    for (neff in c(300, 9000)){
-      for (meff in c(100, 10000)){
+    for (neff in c(300, 1000, 3000, 9000)){
+      for (meff in c(100, 300, 1000, 3000, 9000)){
         
         # generate data
         simulation <- simulation.semi.synthetic(n = neff, m = meff, source.data = total.with.overlap, extra.noise.on.high.ttt = additional.noise)
