@@ -3,6 +3,7 @@ source("./generateDGPs.R")
 
 
 set.seed(123)
+options(dplyr.summarise.inform = FALSE)
 
 # libraries
 library(tidyr) # pivot longer or wider
