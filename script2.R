@@ -65,7 +65,7 @@ for (i in 1:200){
                               oracle.e = T, oracle.pt = F, oracle.pr = F)
         
           
-          new.row <-  data.frame("estimate" = semi.oracle,
+          new.row <-  data.frame("estimate" = ipsw,
                                  "set" = set,
                                  "m" = meff,
                                  "n" = neff,
