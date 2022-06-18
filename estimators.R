@@ -138,10 +138,10 @@ ipsw.binned <- function(dataframe,
     # for modalities only present in trial, pt will be filled with NA
     pt <- merge(pt, trial_modalities, by = covariates_names_vector, all.x = F, all.y = T)
     
-    pt$pt <- ifelse(is.na(pt$pt), 1, pt$pt)
-    
-    m.effectif <- sum(pt$pt)
-    pt$pt <- pt$pt/m.effectif
+    # put 0 where no observation in target
+    pt$pt <- ifelse(is.na(pt$pt), 0, pt$pt)
+
+    pt$pt <- pt$pt/m
     
     
   } else if (oracle.pt){
