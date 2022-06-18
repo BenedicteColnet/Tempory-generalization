@@ -39,7 +39,7 @@ for (i in 1:200){
     
     
     for (neff in c(3000)){
-      for (meff in c(200)){
+      for (meff in c(10000)){
         
         for (pteff in c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)){
           
@@ -58,16 +58,12 @@ for (i in 1:200){
             Obs$X.shifted <- X.obs
             
             simulation <- rbind(RCT, Obs)
-          }
-          
+          } 
           
           # estimation
-          # ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = covariate.to.adjust.on, 
-          #                     oracle.e = T, oracle.pt = F, oracle.pr = F)
-          
-          semi.oracle <- ipsw.binned(dataframe = simulation, covariates_names_vector = covariate.to.adjust.on, 
-                                     oracle.e = T, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
-          
+          ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = covariate.to.adjust.on,
+                              oracle.e = T, oracle.pt = F, oracle.pr = F)
+        
           
           new.row <-  data.frame("estimate" = semi.oracle,
                                  "set" = set,
