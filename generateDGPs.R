@@ -187,32 +187,59 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
 }
 
 
-simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.oracles = TRUE, extra.noise.on.high.ttt = FALSE){
+simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.oracles = TRUE, extra.noise.on.high.ttt = FALSE, source.data = NULL, generate.associated.ground.truth = FALSE){
   
   # load source data
-  source.data <- load("./data/semi-synthetic-DGP.rds")
+  if(is.null(source.data)){
+    source.data <- load("./data/semi-synthetic-DGP.rds")
+  }
+  
   
   # sample from the two distributions
   source.RCT <- total.with.overlap[total.with.overlap$S == 1,]
   source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
   
-  RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = TRUE), ]
-  Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = TRUE), ]
+  if(!generate.associated.ground.truth){
+    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = TRUE), ]
+    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = TRUE), ]
+  } else {
+    RCT <- source.RCT
+    Obs <- source.Obs
+  }
   
   total <- rbind(RCT, Obs)
   total <- as.data.frame(total)
   
   
   # Outcome model
-  baseline <- (20 - total$Glasgow.initial) + 2*total$pupilReact_num - 2*(total$systolicBloodPressure.categorized-2)^2 - 2*total$age.categorized 
-  cate <- 1*total$Glasgow.initial/15 - 4*total$time_to_treatment.categorized
+  baseline <- (20 - total$Glasgow.initial) 
+  + 2*total$pupilReact_num 
+  - 2*(total$systolicBloodPressure.categorized-2)^2 
+  - 2*total$age.categorized 
   
-  total$Y_0 = baseline + rnorm(n+m,  mean = 0, sd = 1)
-  total$Y_1 =  baseline + cate + rnorm(n+m,  mean = 0, sd = 1)
+  
+  cate <- 0.5*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized)
+  
+  total$Y_0 = baseline 
+  total$Y_1 =  baseline + cate
+  
+  if(generate.associated.ground.truth){
+    return(total)
+    break
+  }
+  
+  # add gaussian noise
+  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 1)
+  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 1)
   
   if(extra.noise.on.high.ttt){
-    extra.noise <- rnorm(n+m,  mean = 0, sd = rep(1, n+m))*5*total$time_to_treatment.categorized 
-    total$Y_1 <- total$Y_1 + extra.noise
+    
+    # adding extra noise if treatment given too late
+    extra.noise.Y_1 <- ifelse(total$time_to_treatment.categorized == 5, rnorm(1,  mean = 0, sd = 5), 0)
+    #extra.noise.Y_0 <- ifelse(total$time_to_treatment.categorized == 5, rnorm(1,  mean = 0, sd = 5), 0)
+    
+    total$Y_1 <- total$Y_1 + extra.noise.Y_1
+    #total$Y_0 <- total$Y_0 + extra.noise.Y_0
   }
   
   # random treatment assignment within the RCT / Bernoulli trial
@@ -223,7 +250,6 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   
   # observed outcome
   total$Y <- ifelse(total$S == 1, ifelse(total$A == 1, total$Y_1, total$Y_0), NA)
-  total$e <- rep(0.5, nrow(total))
   
   
   if(!output.oracles){
@@ -236,4 +262,3 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   return(total)
   
 }
-

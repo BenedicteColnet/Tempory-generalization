@@ -108,7 +108,6 @@ ipsw.univariate.and.categorical.X <- function(dataframe,
   return(estimate)
 }
 
-
 ipsw.binned <- function(dataframe,
                         covariates_names_vector,
                         outcome_name = "Y",
@@ -117,7 +116,8 @@ ipsw.binned <- function(dataframe,
                         oracle.pt = F, 
                         oracle.pr = F,
                         oracle.pt.data = NULL,
-                        oracle.pr.data = NULL){
+                        oracle.pr.data = NULL,
+                        oracle.e.data = 0.5){
   
   RCT <- dataframe[dataframe$S == 1,]
   n = nrow(RCT)
@@ -127,48 +127,97 @@ ipsw.binned <- function(dataframe,
   
   if(!oracle.pt){
     
-    # remove oracle if any in RCT
-    RCT = RCT[,!(names(RCT) %in% c("pt"))]
-    
-    # Obs - count proportion of each of the covariates
-    pt.hat <-  Obs %>% 
+    # Obs - count number of observations per observed categories
+    pt <-  Obs %>% 
       group_by(across(covariates_names_vector)) %>%
-      summarise(pt = n()/m)
+      summarise(pt = n())
     
-    # add the estimates in the table
-    RCT <- merge(RCT, pt.hat, by = covariates_names_vector)
+    # check if some categories are observed in trial but not in target
+    trial_modalities <- unique(RCT[, covariates_names_vector])
     
-  }
+    # for modalities only present in trial, pt will be filled with NA
+    pt <- merge(pt, trial_modalities, by = covariates_names_vector, all.x = F, all.y = T)
+    
+    pt$pt <- ifelse(is.na(pt$pt), 1, pt$pt)
+    
+    m.effectif <- sum(pt$pt)
+    pt$pt <- pt$pt/m.effectif
+    
+    
+  } else if (oracle.pt){
+    
+    if(is.null(oracle.pt.data)){
+      print("For oracle pt, provide oracle.pt.data")
+      break
+    }
+    
+    m_tot = sum(oracle.pt.data$count)
+    pt <- oracle.pt.data[, c(covariates_names_vector, "count")]
+    pt <- pt %>% group_by_at(covariates_names_vector) %>% summarize(pt = sum(count)/m_tot)
+  } 
+  
+  # add the estimates in the RCT
+  RCT <- merge(RCT, pt, by = covariates_names_vector)
   
   if(!oracle.pr){
     
-    # remove oracle if any in RCT
-    RCT = RCT[,!(names(RCT) %in% c("pr"))]
-    
-    # RCT - count proportion of each of the covariates
-    pr.hat <-  RCT %>% 
+    # RCT - count number of observations per observed categories
+    pr <-  RCT %>% 
       group_by(across(covariates_names_vector)) %>%
-      summarise(pr = n()/n)
+      summarise(pr = n())
     
-    # add the estimates in the table
-    RCT <- merge(RCT, pr.hat, by = covariates_names_vector)
-  }
+    # # check if some categories are observed in target but not in trial
+    # target_modalities <- unique(Obs[, covariates_names_vector])
+    # 
+    # # for modalities only present in target, pr will be filled with NA
+    # pr <- merge(pr, target_modalities, by = covariates_names_vector, all.x = F, all.y = T)
+    # 
+    # # assume there is at least one observation for each of those modalities
+    # pr$pr <- ifelse(is.na(pr$pr), 0, pr$pr)
+    
+    pr$pr <- pr$pr/n
+    
+    
+  } else if (oracle.pr){
+    
+    if(is.null(oracle.pr.data)){
+      print("For oracle pr, provide oracle.pt.data")
+      break
+    }
+    
+    n_tot = sum(oracle.pr.data$count)
+    pr <- oracle.pr.data[, c(covariates_names_vector, "count")]
+    pr <- pr %>% group_by_at(covariates_names_vector) %>% summarize(pr = sum(count)/n_tot)
+    
+  } 
+  
+  # add the estimates in the RCT
+  RCT <- merge(RCT, pr, by = covariates_names_vector)
   
   
-  Y = RCT$Y
-  A = RCT$A
+  Y = RCT[, outcome_name]
+  A = RCT[, treatment_name]
   r <- RCT$pt / RCT$pr
   
   if (oracle.e){
     
-    e = unique(RCT$e)[[1]]
+    eff = ifelse(RCT[, treatment_name] == 1, 1/oracle.e.data, (-1)/(1-oracle.e.data))
     
   } else {
-    print("careful, not implemented yet")
+    
+    
+    eff <- RCT[, c(covariates_names_vector)] %>% 
+      group_by_at(covariates_names_vector) %>% 
+      summarize(eff = mean(A)) # TODO: change for outcome name
+    
+    eff <- merge(RCT, eff, by = covariates_names_vector)
+    eff$eff <- ifelse(eff[, treatment_name] == 1, 1/eff$eff, (-1)/(1-eff$eff))
+    eff <- eff$eff
+    
   }
   
   
-  estimate <- Y*r*( (A/e) - (1-A)/(1-e))
+  estimate <- Y*r*eff
   estimate <- sum(estimate)/n
   
   return(estimate)
