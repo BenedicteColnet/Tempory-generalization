@@ -12,11 +12,11 @@ output:
   pdf_document:
     toc: yes
 abstract: | 
-  This script is used only once to prepare the semi-synthetic simulation where the covariates mimic a real-life case for traumatic brain injured patients using data from CRASH-3 and the Traumabase.
+  This script is used only once to prepare the semi-synthetic simulation where the covariates mimic a real-life case for traumatic brain injured patients using data from CRASH-3 and the Traumabase. 
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, cache = FALSE, verbose = FALSE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE, cache = FALSE, verbose = FALSE, message = FALSE, warning = FALSE)
 
 # Set random generator seed for reproducible results
 set.seed(123)
@@ -26,9 +26,15 @@ library(readxl) # Read xlsx
 library(dplyr)
 library(ggplot2)
 library(scales) # for the bar plot with the percentage
+
+
+# covariates set considered
+RELEVANT_COVARIATES = c("time_to_treatment", "gender", "age", "pupilReact_num",  "Glasgow.initial", "systolicBloodPressure")
 ```
 
-# Load CRASH-3 data (RCT)
+# CRASH3
+
+## Load CRASH-3 data (RCT)
 
 ```{r, message=F, results='hide'}
 # Load CRASH3 data
@@ -36,35 +42,38 @@ rawData_CRASH3 <- read_xlsx("~/Documents/data/crash/crash-data/crash3/CRASH-3_da
 ```
 
 
-```{r}
-print(paste0("Raw CRASH-3 data contains following number of eligible observations: ", nrow(rawData_CRASH3[rawData_CRASH3$eligible == "Yes",])))
+Trial data contains missing values, and in particular some rows with completely missing values. We remove them.
 
-# keep only eligible patients
-rawData_CRASH3 <- rawData_CRASH3[rawData_CRASH3$eligible == "Yes",]
+```{r}
+rawData_CRASH3[rowSums(is.na(rawData_CRASH3[ , 1:6])) == 6, ]
+```
+
+
+```{r}
+rawData_CRASH3 <- rawData_CRASH3[rowSums(is.na(rawData_CRASH3[ , 1:6])) != 6, ]
+rawData_CRASH3 <- rawData_CRASH3[rowSums(is.na(rawData_CRASH3[ , 1:6])) != 5, ]
 ```
 
 
 
-```{r}
-# major extracranial
-rawData_CRASH3$majorExtracranial <- ifelse(rawData_CRASH3$majorExtracranial == "Yes", 1, 0) 
+## Covariates preparation or recoding or renaming
 
+```{r}
 # GSC
 rawData_CRASH3$Glasgow.initial <- as.numeric(substring(rawData_CRASH3$gcsEyeOpening, 1, 1)) + 
                                  as.numeric(substring(rawData_CRASH3$gcsMotorResponse, 1, 1)) +
                                  as.numeric(substring(rawData_CRASH3$gcsVerbalResponse, 1, 1))
  
 # Women (1) and men (0)
-rawData_CRASH3$gender <- ifelse(rawData_CRASH3$sex == "Female", 1, 0)
+rawData_CRASH3$gender <- rawData_CRASH3$sex
+rawData_CRASH3$gender <- ifelse(rawData_CRASH3$gender == "Female", 1, 0)
 
 # Pupil reactivity
 rawData_CRASH3$pupilReact_num <- case_when(rawData_CRASH3$pupilReact == "Both React" ~ 2,
                                            rawData_CRASH3$pupilReact == "One Reacts" ~ 1,
                                            rawData_CRASH3$pupilReact == "None React" ~ 0,
                                            rawData_CRASH3$pupilReact == "Unable to assess" ~ -1) 
-```
 
-```{r}
 # Time between injury and treatment
 ## data treatement from string to numeric hours and minutes
 rawData_CRASH3$timeSinceInjury_h = format(as.POSIXct(rawData_CRASH3$timeSinceInjury, format="%Y-%m-%d %H:%M"), format="%H")
@@ -75,64 +84,196 @@ rawData_CRASH3$time_to_treatment <- rawData_CRASH3$timeSinceInjury_h*60 + rawDat
 ```
 
 
-```{r}
-CRASH3 <- rawData_CRASH3[, c("time_to_treatment", "gender", "age", "pupilReact_num",  "Glasgow.initial", "systolicBloodPressure")]
-```
-
-# Load Target population data data (Observational)
-
-Note that this data have previously been imputed due to missing values.
-
+## Keeping only relevant covariates 
 
 ```{r}
-# load already imputed data 
-load("~/Documents/data/traumabase/data/traumabase_tbideath_tbi_imputed_mice.RData")
-imputed_traumabase <- df.imp.mice[[1]]
-
-names(imputed_traumabase)[names(imputed_traumabase) == "sexe"] <- "gender"
-
-print(paste0("Raw traumabase data contains following number of observations: ", nrow(imputed_traumabase)))
+CRASH3 <- rawData_CRASH3[, RELEVANT_COVARIATES]
 ```
 
 
+## Trial data imputation
+
+CRASH-3 contains missing values.
+
 ```{r}
-# create time to treatment covariates following a beta law
-simulated_time_to_treatment <- rbeta(nrow(imputed_traumabase), 2, 5, ncp = 0)*250
+summary(CRASH3)
+```
+
+
+We impute them with the package `missRanger`.
+
+```{r}
+library(missRanger)
+CRASH3.imputed <- missRanger(CRASH3, num.trees = 100)
+```
+
+```{r}
+CRASH3.imputed$gender <- as.factor(CRASH3.imputed$gender)
+CRASH3.imputed$pupilReact_num <- floor(CRASH3.imputed$pupilReact_num)
+CRASH3.imputed$pupilReact_num <- as.factor(CRASH3.imputed$pupilReact_num)
+CRASH3.imputed$Glasgow.initial <- floor(CRASH3.imputed$Glasgow.initial )
+CRASH3.imputed$Glasgow.initial <- as.factor(CRASH3.imputed$Glasgow.initial)
+```
+
+
+```{r}
+summary(CRASH3.imputed)
+```
+
+
+
+# Traumabase
+
+## Load Target population data data (Observational)
+
+```{r}
+# load raw data 
+rawData_Traumabase <- read.csv("~/Documents/data/traumabase/data/4_computed_dataset.csv")
+print(paste0("Raw traumabase data contains following number of observations: ", nrow(rawData_Traumabase)))
+```
+
+
+## Covariates
+
+```{r}
+# Glasgow
+rawData_Traumabase$Glasgow.initial <- ifelse(rawData_Traumabase$Glasgow.initial == "ND" | is.na(rawData_Traumabase$Glasgow.initial), NA, as.integer(rawData_Traumabase$Glasgow.initial))
+
+# Age
+rawData_Traumabase$age <- rawData_Traumabase$Age.du.patient..ans
+
+# Note that there are two outliers with age>120 years. By manual inspection, we can correct these observations
+rawData_Traumabase$age[which(rawData_Traumabase$age==721)] <- 72
+rawData_Traumabase$age[which(rawData_Traumabase$age==184)] <- 18
+
+nrow(rawData_Traumabase)
+# Keep only TBI patient
+rawData_Traumabase$TBI <- ifelse(rawData_Traumabase$Trauma.crânien..lésion.cérébrale.TDM. == "Oui" | rawData_Traumabase$ISS....Head_neck >= 2, 1, 0)
+rawData_Traumabase <- rawData_Traumabase[rawData_Traumabase$TBI == 1, ]
+nrow(rawData_Traumabase)
+
+
+# Systolic blood pressure
+rawData_Traumabase$systolicBloodPressure <- rawData_Traumabase$Pression.Artérielle.Systolique..PAS..à.l.arrivée.du.SMUR 
+
+# Women (1) and men (0)
+rawData_Traumabase$gender <- ifelse(rawData_Traumabase$Sexe == "Féminin", 1, 0)
+
+# Pupil reactivity
+x <- rawData_Traumabase[,"Anomalie.pupillaire..Pré.hospitalier."]
+
+rawData_Traumabase$pupilReact <- case_when(x == "Non" ~ "Both React",
+                                           x == "Anisocorie (unilatérale)" ~ "One Reacts",
+                                           x == "Mydriase Bilatérale" ~ "None React",
+                                           x == "Pas précisé" ~ "Unable to assess") 
+
+rawData_Traumabase$pupilReact_num <- case_when(rawData_Traumabase$pupilReact == "Both React" ~ 2,
+                                           rawData_Traumabase$pupilReact == "One Reacts" ~ 1,
+                                           rawData_Traumabase$pupilReact == "None React" ~ 0,
+                                           rawData_Traumabase$pupilReact == "Unable to assess" | is.na(rawData_Traumabase$pupilReact) ~ -1) 
+
+# Systolic blood pressure
+rawData_Traumabase$systolicBloodPressure <- rawData_Traumabase$Pression.Artérielle.Systolique..PAS..à.l.arrivée.du.SMUR 
+rawData_Traumabase$systolicBloodPressure <- as.numeric(rawData_Traumabase$systolicBloodPressure)
+```
+
+
+
+```{r}
+summary(rawData_Traumabase[, setdiff(RELEVANT_COVARIATES, "time_to_treatment")])
+```
+
+
+
+Imputation (already performed and stored in `traumabase_tbi_imputed_mice_for_covariate_selection_paper.RData`)
+
+```{r}
+vars.for.imputation <- c("Traitement.anticoagulant",
+"Traitement.antiagrégants",
+"Glasgow.initial",
+"Glasgow.moteur.initial",
+"Mannitol...SSH",
+"Régression.mydriase.sous.osmothérapie",
+"Arrêt.cardio.respiratoire..massage.",
+"Fréquence.cardiaque..FC..à.l.arrivée.du.SMUR",
+"Cristalloïdes",
+"Colloïdes",
+"Hémocue.initial",
+"Delta.Hémocue",
+"Catécholamines",
+"SpO2.min",
+"Score.de.Glasgow.en.phase.hospitalière",
+"Glasgow.moteur",
+"Anomalie.pupillaire..Phase.hospitalière.",
+"FC.en.phase.hospitalière",
+"Doppler.TransCrânien..DTC...Index.de.Pulsatilité..IP..max",
+"FiO2",
+"Bloc.dans.les.premières.24h....Neurochirurgie..ex....Craniotomie.ou.DVE.",
+"Total.Score.IGS",
+"Osmothérapie",
+"HTIC...25.PIC.simple.sédation.",
+"Dérivation.ventriculaire.externe..DVE.",
+"Craniectomie.dé.compressive",
+"ISS....Head_neck",
+"ISS....Face",
+"ISS....External",
+"Score.ISS",
+"ISS....Selection",
+"age",
+"systolicBloodPressure",
+"pupilReact_num",
+"gender")
+
+Traumabase.imputed <- missRanger(rawData_Traumabase[, vars.for.imputation], num.trees = 10)
+```
+
+
+```{r}
+names(Traumabase.imputed)[names(Traumabase.imputed) == "sexe"] <- "gender"
+
+print(paste0("Raw traumabase data contains following number of observations: ", nrow(Traumabase.imputed)))
+```
+
+
+```{r}
+# create a synthetic time to treatment covariates following a beta law
+simulated_time_to_treatment <- rbeta(nrow(Traumabase.imputed), 2, 5, ncp = 0)*310
 hist(simulated_time_to_treatment)
 
-
-imputed_traumabase$time_to_treatment <- simulated_time_to_treatment
+Traumabase.imputed$time_to_treatment <- simulated_time_to_treatment
 ```
 
 
 
 ```{r}
-imputed_traumabase <- imputed_traumabase[, c("time_to_treatment", "gender", "age", "pupilReact_num",  "Glasgow.initial", "systolicBloodPressure")]
+Traumabase.imputed <- Traumabase.imputed[, RELEVANT_COVARIATES]
 ```
-
-
-# Bind the two 
-
-Trial data contains missing values.
 
 
 ```{r}
-nrow(CRASH3)
-CRASH3 <- na.omit(CRASH3)
-nrow(CRASH3)
+Traumabase.imputed$Glasgow.initial <- floor(Traumabase.imputed$Glasgow.initial)
+Traumabase.imputed$gender <- as.factor(Traumabase.imputed$gender)
+Traumabase.imputed$pupilReact_num <- as.factor(Traumabase.imputed$pupilReact_num)
+Traumabase.imputed$Glasgow.initial <- as.factor(Traumabase.imputed$Glasgow.initial)
 ```
-
 
 
 ```{r}
-imputed_traumabase$S <- rep(0, nrow(imputed_traumabase))
-CRASH3$S <- rep(1, nrow(CRASH3))
-
-total <- rbind(imputed_traumabase, CRASH3)
+summary(Traumabase.imputed)
 ```
 
 
-# Categorization of the continuous covariates
+# Binding the two data sets and ensuring overlap
+
+```{r}
+Traumabase.imputed$S <- rep(0, nrow(Traumabase.imputed))
+CRASH3.imputed$S <- rep(1, nrow(CRASH3.imputed))
+
+total <- rbind(Traumabase.imputed, CRASH3.imputed)
+```
+
+
+## Categorization of the continuous covariates
 
 We need to make categorical some of the covariates that are initially categorical, namely:
 - Age
@@ -143,15 +284,15 @@ We also lower a bit the granularity of Glasgow score.
 
 
 ```{r}
-total$age.categorized <- case_when(total$age < 30 ~ 1,
-                                total$age >= 30 &  total$age < 50 ~ 2,
+total$age.categorized <- case_when(total$age < 35 ~ 1,
+                                total$age >= 35 &  total$age < 50 ~ 2,
                                 total$age >= 50 &  total$age < 60 ~ 3,
                                 total$age >= 60 ~ 4)
 
 
-total$systolicBloodPressure.categorized <- case_when(total$systolicBloodPressure < 100 ~ 1,
-                                total$systolicBloodPressure >= 100 &  total$systolicBloodPressure < 200 ~ 2,
-                                total$systolicBloodPressure >= 200 ~ 3)
+total$systolicBloodPressure.categorized <- case_when(total$systolicBloodPressure < 120 ~ 1,
+                                total$systolicBloodPressure >= 120 &  total$systolicBloodPressure < 180 ~ 2,
+                                total$systolicBloodPressure >= 180 ~ 3)
 
 
 total$time_to_treatment.categorized <- case_when(total$time_to_treatment < 30 ~ 1,
@@ -161,25 +302,29 @@ total$time_to_treatment.categorized <- case_when(total$time_to_treatment < 30 ~ 
                                 total$time_to_treatment >= 150 ~ 5)
 
 
+total$Glasgow.initial <- as.integer(total$Glasgow.initial) + 2
+total$Glasgow.initial <- ifelse(total$Glasgow.initial  == 3, 4, total$Glasgow.initial)
+total$Glasgow.initial <- ifelse(total$Glasgow.initial == 15, 14, total$Glasgow.initial)
 
-total$Glasgow.initial <- ifelse(total$Glasgow.initial < 4, 3, total$Glasgow.initial)
-total$Glasgow.initial <- ifelse(total$Glasgow.initial >13, 14, total$Glasgow.initial)
+total$S <- as.factor(total$S)
 ```
 
 
-# Sanity check: Is overlap ensured?
+```{r}
+summary(total)
+```
 
+## Sanity check: Is overlap ensured?
 
 We can count how many observations fall in each categories.
 
 ```{r}
 count.observations.in.each.strata.trial <- total[total$S == 1,] %>% group_by(time_to_treatment.categorized, Glasgow.initial, systolicBloodPressure.categorized, age.categorized, gender, pupilReact_num) %>%
-  summarise(n())
+  summarise(count = n())
 
 count.observations.in.each.strata.target <- total[total$S == 0,] %>% group_by(time_to_treatment.categorized, Glasgow.initial, systolicBloodPressure.categorized, age.categorized, gender, pupilReact_num) %>%
-  summarise(n())
+  summarise(count = n())
 ```
-
 
 What are the most represented categories in each population?
 
@@ -188,11 +333,10 @@ What are the most represented categories in each population?
 
 
 ```{r}
-count.observations.in.each.strata.target[count.observations.in.each.strata.target$`n()` > 0.2*max(count.observations.in.each.strata.target$`n()`), ]
+count.observations.in.each.strata.target[count.observations.in.each.strata.target$count > 0.2*max(count.observations.in.each.strata.target$count), ]
 
-count.observations.in.each.strata.trial[count.observations.in.each.strata.trial$`n()` > 0.2*max(count.observations.in.each.strata.trial$`n()`), ]
+count.observations.in.each.strata.trial[count.observations.in.each.strata.trial$count > 0.2*max(count.observations.in.each.strata.trial$count), ]
 ```
-
 
 
 ```{r}
@@ -206,43 +350,171 @@ total.with.overlap <- total.with.overlap[, c('time_to_treatment.categorized', 'G
 Keeping only observations with overlap leads to a loss of `r nrow(total) - nrow(total.with.overlap)` observations. At the end the final data set contains `r nrow(total.with.overlap)` observations.
 
 ```{r}
+table(total$S)
 table(total.with.overlap$S)
 ```
 
-# Looking a bit more on the data
-
+Update the count in target population.
 
 ```{r}
-ggplot(total.with.overlap, aes(x = time_to_treatment.categorized, group = S, fill = S)) +
-  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
-  scale_y_continuous(labels = percent_format()) +
-  theme_classic()
-
-
-ggplot(total.with.overlap, aes(x = age.categorized, group = S, fill = S)) +
-  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
-  scale_y_continuous(labels = percent_format()) +
-  theme_classic()
-
-ggplot(total.with.overlap, aes(x = pupilReact_num, group = S, fill = S)) +
-  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
-  scale_y_continuous(labels = percent_format()) +
-  theme_classic()
-
-ggplot(total.with.overlap, aes(x = gender, group = S, fill = S)) +
-  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
-  scale_y_continuous(labels = percent_format()) +
-  theme_classic()
-
-ggplot(total.with.overlap, aes(x = systolicBloodPressure.categorized, group = S, fill = S)) +
-  geom_bar(aes(y=(..count..)/sum(..count..)), position =  "dodge") +
-  scale_y_continuous(labels = percent_format()) +
-  theme_classic()
+count.observations.in.each.strata.target <- total.with.overlap[total.with.overlap$S == 0,] %>% group_by(time_to_treatment.categorized, Glasgow.initial, systolicBloodPressure.categorized, age.categorized, gender, pupilReact_num) %>%
+  summarise(count = n())
 ```
 
-# Saving the data 
+## Save data
 
 ```{r}
+total$pupilReact_num <- as.integer(total$pupilReact_num) - 2
+
 save(total.with.overlap, file = "./data/semi-synthetic-DGP.rds")
+save(count.observations.in.each.strata.target, file = "./data/semi-synthetic-oracle-target.rds")
+save(count.observations.in.each.strata.trial, file = "./data/semi-synthetic-oracle-trial.rds")
 ```
+
+## Rename the columns for nice plots
+
+```{r}
+total.with.overlap$age.categorized <- case_when(total.with.overlap$age < 35 ~ "< 35",
+                                total.with.overlap$age >= 35 &  total.with.overlap$age < 50 ~ "35 - 50",
+                                total.with.overlap$age >= 50 &  total.with.overlap$age < 60 ~ "50 - 60",
+                                total.with.overlap$age >= 60 ~ "> 60")
+total.with.overlap$age.categorized <- as.factor(total.with.overlap$age.categorized)
+
+
+total.with.overlap$systolicBloodPressure.categorized <- case_when(total.with.overlap$systolicBloodPressure < 120 ~ "Lower range",
+                                total.with.overlap$systolicBloodPressure >= 120 &  total.with.overlap$systolicBloodPressure < 180 ~ "Normal range",
+                                total.with.overlap$systolicBloodPressure >= 180 ~ "Upper range")
+
+total.with.overlap$systolicBloodPressure.categorized <- as.factor(total.with.overlap$systolicBloodPressure.categorized)
+
+
+total.with.overlap$time_to_treatment.categorized <- case_when(total.with.overlap$time_to_treatment < 30 ~ "< 30",
+                                total.with.overlap$time_to_treatment >= 30 &  total.with.overlap$time_to_treatment < 60 ~ "30 - 60",
+                                total.with.overlap$time_to_treatment >= 60 &  total.with.overlap$time_to_treatment < 90 ~ "60 - 90",
+                                total.with.overlap$time_to_treatment >= 90 &  total.with.overlap$time_to_treatment < 150 ~ "90 - 150",
+                                total.with.overlap$time_to_treatment >= 150 ~ "> 150")
+
+total.with.overlap$time_to_treatment.categorized <- as.factor(total.with.overlap$time_to_treatment.categorized)
+
+
+total.with.overlap$Glasgow.initial <- as.integer(total.with.overlap$Glasgow.initial) + 2
+total.with.overlap$Glasgow.initial <- ifelse(total.with.overlap$Glasgow.initial  == 3, 4, total.with.overlap$Glasgow.initial)
+total.with.overlap$Glasgow.initial <- ifelse(total.with.overlap$Glasgow.initial == 15, 14, total.with.overlap$Glasgow.initial)
+total.with.overlap$Glasgow.initial <- as.factor(total.with.overlap$Glasgow.initial)
+
+
+total.with.overlap$pupilReact_num <- as.factor(total.with.overlap$pupilReact_num)
+total.with.overlap$gender <- ifelse(total.with.overlap$gender == 1, "Female", "Male")
+
+total.with.overlap$S <- as.factor(total.with.overlap$S)
+```
+
+
+
+## Looking a bit more to the data - Plots
+
+
+```{r}
+total.with.overlap$age.categorized <- factor(total.with.overlap$age.categorized, order = TRUE, levels = c("< 35", "35 - 50", "50 - 60", "> 60"))
+
+total.with.overlap$time_to_treatment.categorized <- factor(total.with.overlap$time_to_treatment.categorized, order = TRUE, levels =c("< 30", "30 - 60", "60 - 90", "90 - 150",  "> 150"))
+```
+
+
+```{r}
+total.with.overlap$Source <- ifelse(total.with.overlap$S == 1, "CRASH-3", "Traumabase")
+```
+
+
+```{r}
+n = nrow(total.with.overlap[total.with.overlap$S == 1,])
+m = nrow(total.with.overlap) - n
+
+total.with.overlap %>% 
+  group_by(time_to_treatment.categorized, Source) %>%  
+  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
+                          else round(100*n()/m,0)) %>%
+  mutate(percent = floor(percent)) %>%
+  ggplot(aes(x = time_to_treatment.categorized, fill = Source, group = Source)) +
+  geom_col(aes(y = percent), position = "dodge") +
+  ylab("%") +
+  theme_minimal() +
+  xlab("Time between accident and treatment (minutes)") +
+  scale_fill_manual(values=c("#E69F00", "#999999"))
+  ggsave("./fig/semi-synthetic-ttt.pdf", width = 5, height = 5)
+
+total.with.overlap %>% 
+  group_by(systolicBloodPressure.categorized, Source) %>%  
+  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
+                          else round(100*n()/m,0)) %>%
+  mutate(percent = floor(percent)) %>%
+  ggplot(aes(x = systolicBloodPressure.categorized, fill = Source, group = Source)) +
+  geom_col(aes(y = percent), position = "dodge") +
+  ylab("%") +
+  theme_minimal() +
+  xlab("Systolic blood pressure") +
+  scale_fill_manual(values=c("#E69F00", "#999999"))
+ggsave("./fig/semi-synthetic-blood.pdf", width = 5, height = 5)
+
+total.with.overlap %>% 
+  group_by(age.categorized, Source) %>%  
+  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
+                          else round(100*n()/m,0)) %>%
+  mutate(percent = floor(percent)) %>%
+  ggplot(aes(x = age.categorized, fill = Source, group = Source)) +
+  geom_col(aes(y = percent), position = "dodge") +
+  ylab("%") +
+   theme_minimal() +
+  xlab("Age (years)") +
+  scale_fill_manual(values=c("#E69F00", "#999999"))
+ggsave("./fig/semi-synthetic-age.pdf", width = 5, height = 5)
+
+total.with.overlap %>% 
+  group_by(gender, Source) %>%  
+  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
+                          else round(100*n()/m,0)) %>%
+  mutate(percent = floor(percent)) %>%
+  ggplot(aes(x = gender, fill = Source, group = Source)) +
+  geom_col(aes(y = percent), position = "dodge") +
+  ylab("%") +
+   theme_minimal() +
+  #xlab("Gender") +
+  scale_fill_manual(values=c("#E69F00", "#999999"))
+ggsave("./fig/semi-synthetic-gender.pdf", width = 5, height = 5)
+
+total.with.overlap %>% 
+  group_by(Glasgow.initial, Source) %>%  
+  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
+                          else round(100*n()/m,0)) %>%
+  mutate(percent = floor(percent)) %>%
+  ggplot(aes(x = Glasgow.initial, fill = Source, group = Source)) +
+  geom_col(aes(y = percent), position = "dodge") +
+  ylab("%") +
+  theme_minimal() +
+  xlab("Glasgow score") +
+  scale_fill_manual(values=c("#E69F00", "#999999"))
+ggsave("./fig/semi-synthetic-glasgow.pdf", width = 5, height = 5)
+
+
+total.with.overlap %>% 
+  group_by(pupilReact_num, Source) %>%  
+  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
+                          else round(100*n()/m,0)) %>%
+  mutate(percent = floor(percent)) %>%
+  ggplot(aes(x = pupilReact_num, fill = Source, group = Source)) +
+  geom_col(aes(y = percent), position = "dodge") +
+  ylab("%") +
+   theme_minimal() +
+  xlab("Pupil reactivity") +
+  scale_fill_manual(values=c("#E69F00", "#999999"))
+ggsave("./fig/semi-synthetic-pupil.pdf", width = 5, height = 5)
+
+```
+
+```{r}
+ggplot(total.with.overlap, aes(x = time_to_treatment, fill = Source, group = Source)) +
+  geom_density(alpha = 0.5) +
+  theme_classic()
+```
+
 
