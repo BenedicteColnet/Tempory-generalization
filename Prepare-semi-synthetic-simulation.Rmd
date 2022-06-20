@@ -55,7 +55,6 @@ rawData_CRASH3 <- rawData_CRASH3[rowSums(is.na(rawData_CRASH3[ , 1:6])) != 5, ]
 ```
 
 
-
 ## Covariates preparation or recoding or renaming
 
 ```{r}
