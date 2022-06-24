@@ -176,7 +176,7 @@ ipsw.binned <- function(dataframe,
     # pr$pr <- ifelse(is.na(pr$pr), 1, pr$pr)
     # neff <- sum(pr$pr)
     # 
-    pr$pr <- pr$pr/neff
+    pr$pr <- pr$pr/n
     
     
   } else if (oracle.pr){

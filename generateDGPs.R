@@ -235,7 +235,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   if(extra.noise.on.high.ttt){
     
     # adding extra noise if treatment given too late
-    extra.noise.Y_1 <- ifelse(total$time_to_treatment.categorized == 4, rnorm(1,  mean = 0, sd = 4), 0)
+    extra.noise.Y_1 <- ifelse(total$time_to_treatment.categorized == 4, rnorm(1,  mean = 0, sd = 5), 0)
     
     total$Y_1 <- total$Y_1 + extra.noise.Y_1
   }
