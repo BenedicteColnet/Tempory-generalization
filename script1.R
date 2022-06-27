@@ -37,10 +37,10 @@ for (i in 1:100){
   }
   
   
-  for (additional.noise in c(T)){
+  for (additional.noise in c(F)){
     
-    for (neff in c(100, 250, 500)){
-      for (meff in c(100)){
+    for (neff in c(100, 1000)){
+      for (meff in c(100, 1000)){
         
         # generate data
         simulation <- simulation.semi.synthetic(n = neff, m = meff, source.data = total.with.overlap, extra.noise.on.high.ttt = additional.noise)
@@ -53,12 +53,14 @@ for (i in 1:100){
                                    oracle.e = T, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
         oracle <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
                               oracle.e = T, oracle.pt = T, oracle.pr = T, oracle.pr.data = count.observations.in.each.strata.trial, oracle.pt.data = count.observations.in.each.strata.target)
+        semi.oracle.other <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
+                                   oracle.e = T, oracle.pt = F, oracle.pr = T, oracle.pr.data = count.observations.in.each.strata.trial)
         
-        new.row <- data.frame("estimate" = c(dm, ipsw, semi.oracle, oracle),
-                              "method" = c("DM", "IPSW", "semi-oracle", "oracle"),
-                              "additional.noise" = rep(additional.noise, 4),
-                              "n" = rep(neff, 4),
-                              "m" = rep(meff, 4))
+        new.row <- data.frame("estimate" = c(dm, ipsw, semi.oracle, oracle, semi.oracle.other),
+                              "method" = c("DM", "IPSW", "semi-oracle", "oracle", "semi-oracle-other"),
+                              "additional.noise" = rep(additional.noise, 5),
+                              "n" = rep(neff, 5),
+                              "m" = rep(meff, 5))
         
         semi.synthetic.minimal <- rbind(semi.synthetic.minimal, new.row)
         

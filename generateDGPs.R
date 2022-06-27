@@ -200,8 +200,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
   
   if(!generate.associated.ground.truth){
-    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = FALSE), ]
-    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = FALSE), ]
+    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = TRUE), ]
+    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = TRUE), ]
   } else {
     RCT <- source.RCT
     Obs <- source.Obs
