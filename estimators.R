@@ -130,7 +130,7 @@ ipsw.binned <- function(dataframe,
     # Obs - count number of observations per observed categories
     pt <-  Obs %>% 
       group_by(across(covariates_names_vector)) %>%
-      summarise(pt = sum(count)) # n()
+      summarise(pt = n())
     
     # # check if some categories are observed in trial but not in target
     # trial_modalities <- unique(RCT[, covariates_names_vector])
@@ -164,7 +164,7 @@ ipsw.binned <- function(dataframe,
     # RCT - count number of observations per observed categories
     pr <-  RCT %>% 
       group_by(across(covariates_names_vector)) %>%
-      summarise(pr = sum(count))
+      summarise(pr = n())
     
     # # check if some categories are observed in target but not in trial
     # target_modalities <- unique(Obs[, covariates_names_vector])
@@ -176,7 +176,7 @@ ipsw.binned <- function(dataframe,
     # pr$pr <- ifelse(is.na(pr$pr), 1, pr$pr + 1)
     # neff <- sum(pr$pr)
 
-    pr$pr <- pr$pr/n
+    pr$pr <- pr$pr/sum(pr$pr)
     
     
   } else if (oracle.pr){
