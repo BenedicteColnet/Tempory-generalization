@@ -173,7 +173,7 @@ ipsw.binned <- function(dataframe,
     pr <- merge(pr, target_modalities, by = covariates_names_vector, all.x = T, all.y = T)
 
     # assume there is at least one observation for each of those modalities to ensure the overlap assumption
-    pr$pr <- ifelse(is.na(pr$pr), 1, pr$pr + 1)
+    pr$pr <- ifelse(is.na(pr$pr), 1, pr$pr)
     neff <- sum(pr$pr)
 
     pr$pr <- pr$pr/neff
