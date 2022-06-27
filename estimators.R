@@ -125,6 +125,13 @@ ipsw.binned <- function(dataframe,
   Obs <- dataframe[dataframe$S == 0,]
   m = nrow(Obs)
   
+  # only take effective overlap
+  if(!oracle.pr){
+    trial_modalities <- unique(RCT[, covariates_names_vector])
+    Obs <- merge(trial_modalities, Obs, by = covariates_names_vector, all.y = FALSE, all.x = TRUE)
+  }
+  
+  
   if(!oracle.pt){
     
     # Obs - count number of observations per observed categories
@@ -176,7 +183,7 @@ ipsw.binned <- function(dataframe,
     # pr$pr <- ifelse(is.na(pr$pr), 1, pr$pr + 1)
     # neff <- sum(pr$pr)
 
-    pr$pr <- pr$pr/sum(pr$pr)
+    pr$pr <- pr$pr/n
     
     
   } else if (oracle.pr){

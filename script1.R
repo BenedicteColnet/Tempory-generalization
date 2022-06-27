@@ -26,7 +26,7 @@ semi.synthetic.minimal <- data.frame("estimate" = c(),
                                      "m" = c(),
                                      "n" = c())
 
-for (i in 1:100){
+for (i in 1:200){
   
   if(i == 1000){
     print("i=1000")
