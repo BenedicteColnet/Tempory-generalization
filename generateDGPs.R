@@ -4,7 +4,7 @@ toy.example <- function(n = 1000, m = 1000,
                         output.oracles = TRUE,
                         symetric.po = TRUE,
                         var.Y = 2,
-                        noisier.var.X1 = TRUE,
+                        noisier.var.X1 = FALSE,
                         prop.X1.RCT = 0.75,
                         prop.X1.Target = 0.3,
                         ATE.on.X1 = 10,
@@ -200,8 +200,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
   
   if(!generate.associated.ground.truth){
-    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = TRUE), ]
-    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = TRUE), ]
+    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = FALSE), ]
+    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = FALSE), ]
   } else {
     RCT <- source.RCT
     Obs <- source.Obs
