@@ -253,9 +253,9 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   if(!output.oracles){
     
     # remove potential outcomes
-    output <- output[, c(names(RCT), "A", "Y")]
+    total <- total[, c(names(RCT), "A", "Y")]
     
-  }
+  } 
   
   return(total)
   
