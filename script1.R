@@ -26,7 +26,7 @@ semi.synthetic.minimal <- data.frame("estimate" = c(),
                                      "m" = c(),
                                      "n" = c())
 
-for (i in 1:1000){
+for (i in 1:100){
   
   if(i == 1000){
     print("i=1000")
@@ -40,7 +40,7 @@ for (i in 1:1000){
   for (additional.noise in c(T)){
     
     for (neff in c(100, 250, 500)){
-      for (meff in c(100, 250, 500)){
+      for (meff in c(100)){
         
         # generate data
         simulation <- simulation.semi.synthetic(n = neff, m = meff, source.data = total.with.overlap, extra.noise.on.high.ttt = additional.noise)
@@ -50,7 +50,7 @@ for (i in 1:1000){
         ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
                             oracle.e = T, oracle.pt = F, oracle.pr = F)
         semi.oracle <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
-                                   oracle.e = T, oracle.pt = F, oracle.pr = T, oracle.pr.data = count.observations.in.each.strata.trial)
+                                   oracle.e = T, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
         oracle <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
                               oracle.e = T, oracle.pt = T, oracle.pr = T, oracle.pr.data = count.observations.in.each.strata.trial, oracle.pt.data = count.observations.in.each.strata.target)
         
