@@ -37,16 +37,16 @@ for (i in 1:1000){
   }
   
   
-  for (additional.noise in c(T, F)){
+  for (additional.noise in c(T)){
     
-    for (neff in c(250, 500, 1000)){
-      for (meff in c(250, 500)){
+    for (neff in c(100, 250, 500,)){
+      for (meff in c(100, 250, 500)){
         
         # generate data
         simulation <- simulation.semi.synthetic(n = neff, m = meff, source.data = total.with.overlap, extra.noise.on.high.ttt = additional.noise)
         
         # estimation
-        dm <- difference.in.means(simulation)
+        dm <- difference.in.means(simulation, oracle.e.too = T)
         ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
                             oracle.e = T, oracle.pt = F, oracle.pr = F)
         semi.oracle <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 

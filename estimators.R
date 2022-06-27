@@ -132,14 +132,14 @@ ipsw.binned <- function(dataframe,
       group_by(across(covariates_names_vector)) %>%
       summarise(pt = n())
     
-    # check if some categories are observed in trial but not in target
-    trial_modalities <- unique(RCT[, covariates_names_vector])
-    
-    # for modalities only present in trial, pt will be filled with NA
-    pt <- merge(pt, trial_modalities, by = covariates_names_vector, all.x = F, all.y = T)
-    
-    # put 0 where no observation in target
-    pt$pt <- ifelse(is.na(pt$pt), 0, pt$pt)
+    # # check if some categories are observed in trial but not in target
+    # trial_modalities <- unique(RCT[, covariates_names_vector])
+    # 
+    # # for modalities only present in trial, pt will be filled with NA
+    # pt <- merge(pt, trial_modalities, by = covariates_names_vector, all.x = F, all.y = T)
+    # 
+    # # put 0 where no observation in target
+    # pt$pt <- ifelse(is.na(pt$pt), 0, pt$pt)
 
     pt$pt <- pt$pt/m
     
@@ -166,11 +166,11 @@ ipsw.binned <- function(dataframe,
       group_by(across(covariates_names_vector)) %>%
       summarise(pr = n())
     
-    # check if some categories are observed in target but not in trial
-    target_modalities <- unique(Obs[, covariates_names_vector])
-
-    # for modalities only present in target, pr will be filled with NA
-    pr <- merge(pr, target_modalities, by = covariates_names_vector, all.x = F, all.y = T)
+    # # check if some categories are observed in target but not in trial
+    # target_modalities <- unique(Obs[, covariates_names_vector])
+    # 
+    # # for modalities only present in target, pr will be filled with NA
+    # pr <- merge(pr, target_modalities, by = covariates_names_vector, all.x = F, all.y = T)
 
     # # assume there is at least one observation for each of those modalities to ensure the overlap assumption
     # pr$pr <- ifelse(is.na(pr$pr), 1, pr$pr)
