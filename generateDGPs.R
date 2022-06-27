@@ -187,7 +187,7 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
 }
 
 
-simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.oracles = TRUE, extra.noise.on.high.ttt = FALSE, source.data = NULL, generate.associated.ground.truth = FALSE){
+simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.oracles = FALSE, extra.noise.on.high.ttt = FALSE, source.data = NULL, generate.associated.ground.truth = FALSE){
   
   # load source data
   if(is.null(source.data)){

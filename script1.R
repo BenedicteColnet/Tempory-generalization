@@ -43,7 +43,7 @@ for (i in 1:200){
       for (meff in c(100, 1000)){
         
         # generate data
-        simulation <- simulation.semi.synthetic(n = neff, m = meff, source.data = total.with.overlap, extra.noise.on.high.ttt = additional.noise, output.oracles = FALSE)
+        simulation <- simulation.semi.synthetic(n = neff, m = meff, source.data = total.with.overlap, extra.noise.on.high.ttt = additional.noise)
         
         # estimation
         dm <- difference.in.means(simulation, oracle.e.too = T)
