@@ -48,9 +48,9 @@ for (i in 1:200){
         # estimation
         dm <- difference.in.means(simulation, oracle.e.too = T)
         ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
-                            oracle.e = T, oracle.pt = F, oracle.pr = F)
+                            oracle.e = F, oracle.pt = F, oracle.pr = F)
         semi.oracle <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
-                                   oracle.e = T, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
+                                   oracle.e = F, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
         oracle <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
                               oracle.e = T, oracle.pt = T, oracle.pr = T, oracle.pr.data = count.observations.in.each.strata.trial, oracle.pt.data = count.observations.in.each.strata.target)
         semi.oracle.other <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
