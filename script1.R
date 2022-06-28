@@ -39,7 +39,7 @@ for (i in 1:500){
   
   for (additional.noise in c(F)){
     
-    for (neff in c(100, 150, 1000)){
+    for (neff in c(100, 150, 200, 300, 400, 1000)){
       for (meff in c(100, 150, 1000)){
         
         # generate data
