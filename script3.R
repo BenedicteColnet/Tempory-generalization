@@ -33,8 +33,8 @@ for (i in 1:1000){
   
   for (additional.noise in c(F, T)){
     
-    for (neff in c(500)){
-      for (meff in c(2500)){
+    for (neff in c(1000)){
+      for (meff in c(5000)){
         
         # generate data
         simulation <- simulation.semi.synthetic(n = neff, m = meff, source.data = total.with.overlap, extra.noise.on.high.ttt = additional.noise)
