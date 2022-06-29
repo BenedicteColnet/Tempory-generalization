@@ -22,6 +22,7 @@ MINIMAL_SET <- c("time_to_treatment.categorized",  "Glasgow.initial")
 
 semi.synthetic.e.hat <- data.frame("estimate" = c(),
                                    "method" = c(),
+                                   "additional.noise" = c(),
                                     "m" = c(),
                                     "n" = c())
 
@@ -30,10 +31,10 @@ for (i in 1:1000){
   print(i)
   
   
-  for (additional.noise in c(F)){
+  for (additional.noise in c(F, T)){
     
-    for (neff in c(500, 1000)){
-      for (meff in c(2500, 5000)){
+    for (neff in c(500)){
+      for (meff in c(2500)){
         
         # generate data
         simulation <- simulation.semi.synthetic(n = neff, m = meff, source.data = total.with.overlap, extra.noise.on.high.ttt = additional.noise)
