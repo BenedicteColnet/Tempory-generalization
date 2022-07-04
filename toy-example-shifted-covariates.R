@@ -1,6 +1,8 @@
 set.seed(123)
 
 library(MASS)
+library(tidyr) # pivot longer or wider
+library(dplyr) # case_when and others
 
 source("./estimators.R")
 source("./generateDGPs.R")
