@@ -10,25 +10,30 @@ options(dplyr.summarise.inform = FALSE)
 
 shifted.covariates <- data.frame("estimate" = c(),
                                  "pt" = c(), 
-                                 "covariate.set" =  c())
+                                 "covariate.set" =  c(),
+                                 "m" = c())
 
 for (pteff in seq(0.05, 0.5, by = 0.025)){
   print(pteff)
-  for (i in 1:500){
-    
-    
-    simulation <- simulation.multivariate.categorical.X(n = 1000, m = 20000, prop.X2.Target = pteff)
-    
-    extended <- ipsw.binned(simulation, covariates_names_vector = c("X1", "X2"), oracle.e = F, oracle.pt = F, oracle.pr = F)
-    minimal <- ipsw.binned(simulation, covariates_names_vector = c("X1"), oracle.e = F, oracle.pt = F, oracle.pr = F)
-    
-    new.row <- data.frame("estimate" = c(extended, minimal),
-                          "pt" = c(pteff, pteff),
-                          "covariate.set" = c("Extended", "Minimal"))
-    
-    shifted.covariates <- rbind(shifted.covariates, new.row)
-    
-  }  
+  
+  for (meff in c(5000, 10000, 20000)){
+      for (i in 1:500){
+        
+        simulation <- simulation.multivariate.categorical.X(n = 1000, m = meff, prop.X2.Target = pteff)
+        
+        extended <- ipsw.binned(simulation, covariates_names_vector = c("X1", "X2"), oracle.e = F, oracle.pt = F, oracle.pr = F)
+        minimal <- ipsw.binned(simulation, covariates_names_vector = c("X1"), oracle.e = F, oracle.pt = F, oracle.pr = F)
+        
+        new.row <- data.frame("estimate" = c(extended, minimal),
+                              "pt" = c(pteff, pteff),
+                              "covariate.set" = c("Extended", "Minimal"),
+                              "m" = c(meff, meff))
+        
+        shifted.covariates <- rbind(shifted.covariates, new.row)
+        
+      } 
+  }
+  
 }
 
 write.csv(shifted.covariates, "./results/toy.example.shifted.covariates.csv", row.names = TRUE)
