@@ -206,9 +206,8 @@ ipsw.binned <- function(dataframe,
     
   } else {
     
-    
-    eff <- RCT[, c(covariates_names_vector)] %>% 
-      group_by_at(covariates_names_vector) %>% 
+    eff <- RCT[, c(covariates_names_vector, outcome_name)] %>% 
+      group_by(across(covariates_names_vector)) %>% 
       summarize(eff = mean(A)) # TODO: change for outcome name
     
     eff <- merge(RCT, eff, by = covariates_names_vector)
