@@ -90,11 +90,10 @@ toy.example <- function(n = 1000, m = 1000,
 # this is an extension of the toy example with multiple covariates
 simulation.multivariate.categorical.X <- function(n = 1000, m = 1000, 
                                                   ratio = 0.5, 
-                                                  output.oracles = TRUE,
                                                   prop.X1.RCT = 0.75,
                                                   prop.X1.Target = 0.3,
-                                                  prop.X2.RCT = 0.5,
-                                                  prop.X2.Target = 0.5){
+                                                  prop.X2.RCT = 0.1,
+                                                  prop.X2.Target = 0.9){
   
   
   
@@ -102,13 +101,15 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
   X1.RCT <- rbinom(n = n, 1, prop.X1.RCT)
   X1.obs <- rbinom(n = m, 1, prop.X1.Target)
   
-  # X2 -- the covariate explaining nothing and shifted
+  # X2 -- the covariate not explaining Y, juste shifted
   X2.RCT <- rbinom(n = n, 1, prop.X2.RCT)
   X2.obs <- rbinom(n = m, 1, prop.X2.Target)
   
   # X3 -- the covariate explaining Y but not shifted
-  X3.RCT <- rbinom(n = n, 1, 0.2)
-  X3.obs <- rbinom(n = m, 1, 0.2)
+  X3.RCT <- rnorm(n = n, mean = 0, sd = 3)
+  X3.RCT <- floor(X3.RCT)
+  X3.obs <- rnorm(n = n, mean = 0, sd = 3)
+  X3.obs <- floor(X3.obs)
 
   
   # random treatment assignment within the RCT / Bernoulli trial
@@ -124,13 +125,9 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
   error_0 = rnorm(n = nrow(output), mean = 0, sd = 1)
   error_1 = rnorm(n = nrow(output), mean = 0, sd = 1)
   
-  # Additional error due to X3
-  error_0_X3 = rnorm(n = nrow(output), mean = 0, sd = 1)
-  error_1_X3 = rnorm(n = nrow(output), mean = 0, sd = 1)
-  
-  Y_0 <- ifelse(output$X1 == 1, 0, 0) + ifelse(output$X3 == 1, 100 + error_0_X3, error_0_X3) 
+  Y_0 <- ifelse(output$X1 == 1, 0, 0) + 10*output$X3
   output$Y_0 <- Y_0 + error_0
-  Y_1 <- ifelse(output$X1 == 1, 10, 5) +  ifelse(output$X3 == 1, 100 + error_1_X3 , error_1_X3)
+  Y_1 <- ifelse(output$X1 == 1, 10, 5) +  10*output$X3
   output$Y_1 <- Y_1 + error_1
 
   # observed outcome
