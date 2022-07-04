@@ -11,7 +11,9 @@ shifted.covariates <- data.frame("estimate" = c(),
                                  "covariate.set" =  c())
 
 for (pteff in seq(0.05, 0.5, by = 0.025)){
+  print(pteff)
   for (i in 1:500){
+    
     
     simulation <- simulation.multivariate.categorical.X(n = 1000, m = 20000, prop.X2.Target = pteff)
     
