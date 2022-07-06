@@ -16,8 +16,8 @@ shifted.covariates <- data.frame("estimate" = c(),
 for (pteff in seq(0.05, 0.5, by = 0.05)){
   print(pteff)
   
-  for (neff in c(500, 10000)){
-      for (i in 1:100){
+  for (neff in c(5000, 50000)){
+      for (i in 1:500){
         
         simulation <- simulation.multivariate.categorical.X(n = neff, m = 5000, prop.X2.Target = pteff)
         
