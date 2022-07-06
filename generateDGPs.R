@@ -148,9 +148,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   if(is.null(source.data)){
     source.data <- load("./data/semi-synthetic-DGP.rds")
   }
-  
-  
-  # sample from the two distributions
+
+  # sample from the two populations
   source.RCT <- total.with.overlap[total.with.overlap$S == 1,]
   source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
   
@@ -168,12 +167,12 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   
   # Outcome model
   baseline <- (20 - total$Glasgow.initial) 
-  + 2*total$pupilReact_num 
+  #+ 2*total$pupilReact_num 
   - 2*(total$systolicBloodPressure.categorized-2)^2 
   - 2*total$age.categorized 
   
   
-  cate <- 0.5*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized)
+  cate <- 0.5*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized) -5*total$gender
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
