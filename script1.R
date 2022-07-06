@@ -56,11 +56,11 @@ for (i in 1:1000){
         # semi.oracle.other <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, 
         #                            oracle.e = T, oracle.pt = F, oracle.pr = T, oracle.pr.data = count.observations.in.each.strata.trial)
         
-        new.row <- data.frame("estimate" = c(dm, ipsw, semi.oracle, oracle, semi.oracle.other),
-                              "method" = c("DM", "IPSW", "semi-oracle", "oracle", "semi-oracle-other"),
-                              "additional.noise" = rep(additional.noise, 5),
-                              "n" = rep(neff, 5),
-                              "m" = rep(meff, 5))
+        new.row <- data.frame("estimate" = c(dm, ipsw, semi.oracle, oracle),
+                              "method" = c("DM", "IPSW", "semi-oracle", "oracle"),
+                              "additional.noise" = rep(additional.noise, 4),
+                              "n" = rep(neff, 4),
+                              "m" = rep(meff, 4))
         
         semi.synthetic.minimal <- rbind(semi.synthetic.minimal, new.row)
         
