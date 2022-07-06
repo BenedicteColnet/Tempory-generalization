@@ -13,13 +13,13 @@ shifted.covariates <- data.frame("estimate" = c(),
                                  "covariate.set" =  c(),
                                  "m" = c())
 
-for (pteff in seq(0.05, 0.5, by = 0.025)){
+for (pteff in seq(0.1, 0.5, by = 0.1)){
   print(pteff)
   
-  for (meff in c(5000, 50000, 500000)){
-      for (i in 1:1000){
+  for (meff in c(5000)){
+      for (i in 1:100){
         
-        simulation <- simulation.multivariate.categorical.X(n = 1000, m = meff, prop.X2.Target = pteff)
+        simulation <- simulation.multivariate.categorical.X(n = 10000, m = meff, prop.X2.Target = pteff)
         
         extended <- ipsw.binned(simulation, covariates_names_vector = c("X1", "X2"), oracle.e = F, oracle.pt = F, oracle.pr = F)
         minimal <- ipsw.binned(simulation, covariates_names_vector = c("X1"), oracle.e = F, oracle.pt = F, oracle.pr = F)
