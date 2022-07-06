@@ -11,15 +11,15 @@ options(dplyr.summarise.inform = FALSE)
 shifted.covariates <- data.frame("estimate" = c(),
                                  "pt" = c(), 
                                  "covariate.set" =  c(),
-                                 "m" = c())
+                                 "n" = c())
 
-for (pteff in seq(0.1, 0.5, by = 0.1)){
+for (pteff in seq(0.05, 0.5, by = 0.05)){
   print(pteff)
   
-  for (meff in c(5000)){
+  for (neff in c(500, 10000)){
       for (i in 1:100){
         
-        simulation <- simulation.multivariate.categorical.X(n = 10000, m = meff, prop.X2.Target = pteff)
+        simulation <- simulation.multivariate.categorical.X(n = neff, m = 5000, prop.X2.Target = pteff)
         
         extended <- ipsw.binned(simulation, covariates_names_vector = c("X1", "X2"), oracle.e = F, oracle.pt = F, oracle.pr = F)
         minimal <- ipsw.binned(simulation, covariates_names_vector = c("X1"), oracle.e = F, oracle.pt = F, oracle.pr = F)
@@ -27,7 +27,7 @@ for (pteff in seq(0.1, 0.5, by = 0.1)){
         new.row <- data.frame("estimate" = c(extended, minimal),
                               "pt" = c(pteff, pteff),
                               "covariate.set" = c("Extended", "Minimal"),
-                              "m" = c(meff, meff))
+                              "n" = c(neff, neff))
         
         shifted.covariates <- rbind(shifted.covariates, new.row)
         
