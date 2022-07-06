@@ -165,6 +165,9 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   total <- as.data.frame(total)
   
   
+  total$gender <- as.numeric(total$gender)
+  
+  
   # Outcome model
   baseline <- (20 - total$Glasgow.initial) 
   #+ 2*total$pupilReact_num 
@@ -172,7 +175,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   - 2*total$age.categorized 
   
   
-  cate <- 0.5*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized) -5*total$gender
+  cate <- 0.5*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized) - 3*total$gender
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
