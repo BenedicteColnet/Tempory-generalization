@@ -154,8 +154,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
   
   if(!generate.associated.ground.truth){
-    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = FALSE), ]
-    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = FALSE), ]
+    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = TRUE), ]
+    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = TRUE), ]
   } else {
     RCT <- source.RCT
     Obs <- source.Obs
@@ -175,7 +175,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   - 2*total$age.categorized 
   
   
-  cate <- 0.5*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized) - 3*total$gender
+  cate <- 0.5*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized)
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
@@ -186,16 +186,22 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   }
   
   # add gaussian noise
-  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 1)
-  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 1)
+  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 0.5)
+  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 0.5)
+  
+  # gender is adding noise
+  extra.noise.gender.Y_0 <- ifelse(total$gender == 0, rnorm(1,  mean = 0, sd = 4), rnorm(1,  mean = 0, sd = 0))
+  total$Y_0 = total$Y_0 + extra.noise.gender.Y_0
   
   if(extra.noise.on.high.ttt){
     
     # adding extra noise if treatment given too late
-    extra.noise.Y_1 <- ifelse(total$time_to_treatment.categorized == 4, rnorm(1,  mean = 0, sd = 5), 0)
+    extra.noise.Y_1 <- ifelse(total$time_to_treatment.categorized == 4, rnorm(1,  mean = 0, sd = 3), 0)
     
     total$Y_1 <- total$Y_1 + extra.noise.Y_1
   }
+  
+  
   
   # random treatment assignment within the RCT / Bernoulli trial
   treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
