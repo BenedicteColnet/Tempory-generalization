@@ -50,4 +50,4 @@ for (i in 1:5000){
 }
 
 
-write.csv(semi.synthetic.e.hat, "./results/finite.sample.so.csv", row.names = TRUE)
+write.csv(finite.sample.semi.oracle, "./results/finite.sample.so.csv", row.names = TRUE)
