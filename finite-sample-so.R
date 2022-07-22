@@ -30,12 +30,12 @@ for (i in 1:5000){
   
   for (neff in seq(25, 325, by = 25)){
     
-    for (meff in c(seq(25, 325, by = 25), "inf")) {
+    for (meff in c(seq(25, 325, by = 25), 15)) {
       
       # Generate data
       simulation <- toy.example(n = neff, m = meff, output.oracles = T, symetric.po = F, noisier.var.X1 = F)
       
-      if (meff == "inf"){
+      if (meff == 15){
         
         # semi oracle
         ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = F, oracle.pt = T, oracle.pr = F)
