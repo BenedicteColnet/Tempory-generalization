@@ -15,7 +15,7 @@ finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "n" = c(),
                                         "m" = c())
 
-for (i in 1:5000){
+for (i in 1:100){
   if( i == 1000){
     print(i)
   }
@@ -30,23 +30,39 @@ for (i in 1:5000){
   
   for (neff in seq(25, 325, by = 25)){
     
-    for (meff in c(seq(25, 325, by = 25), 15)) {
+    
+    # Generate data for oracle and semi oracle
+    simulation <- toy.example(n = neff, m = meff, output.oracles = T, symetric.po = F, noisier.var.X1 = F)
+    
+    # fully oracle
+    ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = F, oracle.pt = T, oracle.pr = T)
+    method = "oracle"
+    
+    new.row <- data.frame("estimate" = ipsw,
+                          "method" = method,
+                          "n" = neff,
+                          "m" = meff)
+    
+    finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
+    
+    # semi oracle
+    ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = F, oracle.pt = T, oracle.pr = F)
+    method = "semi.oracle"
+    
+    new.row <- data.frame("estimate" = ipsw,
+                          "method" = method,
+                          "n" = neff,
+                          "m" = meff)
+    
+    finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
+    
+    for (meff in seq(25, 325, by = 25)) {
       
       # Generate data
       simulation <- toy.example(n = neff, m = meff, output.oracles = T, symetric.po = F, noisier.var.X1 = F)
       
-      if (meff == 15){
-        
-        # semi oracle
-        ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = F, oracle.pt = T, oracle.pr = F)
-        method = "semi.oracle"
-        
-      } else {
-        
-        ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = F, oracle.pt = F, oracle.pr = F)
-        method = "ipsw"
-      }
-      
+      ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = F, oracle.pt = F, oracle.pr = F)
+      method = "ipsw"
       new.row <- data.frame("estimate" = ipsw,
                             "method" = method,
                             "n" = neff,
