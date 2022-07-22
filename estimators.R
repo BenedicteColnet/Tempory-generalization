@@ -30,7 +30,8 @@ ipsw.univariate.and.categorical.X <- function(dataframe,
                                               estimand = "ATE", 
                                               oracle.e = F, 
                                               oracle.pt = F, 
-                                              oracle.pr = F){
+                                              oracle.pr = F,
+                                              oracle.pi = 0.5){
   
   # extract RCT and relevant quantities
   rct <- dataframe[dataframe$S == 1,]
@@ -39,58 +40,144 @@ ipsw.univariate.and.categorical.X <- function(dataframe,
   X = rct$X
   
   if (oracle.e){
-    e.hat.X1 = 0.5
-    e.hat.X0 = 0.5
+    
+    e.hat = oracle.pi
+    
+    if (!oracle.pt & !oracle.pr){
+      
+      r.X.1 <- mean(dataframe[dataframe$S == 0, "X"]) / mean(dataframe[dataframe$S == 1, "X"])
+      r.X.0 <- (1- mean(dataframe[dataframe$S == 0, "X"]))/ (1-mean(dataframe[dataframe$S == 1, "X"]))
+      r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
+      
+    } else if (!oracle.pt & oracle.pr){
+      
+      if(!("pr" %in% colnames(dataframe)) ) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+        break
+      }
+      
+      r.X.1 <- mean(dataframe[dataframe$S == 0, "X"]) / rct[rct$X == 1, "pr"][[1]]
+      r.X.0 <- (1- mean(dataframe[dataframe$S == 0, "X"]))/   rct[rct$X == 0, "pr"][[1]]
+      r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
+      
+    } else if  (oracle.pt & !oracle.pr){
+      
+      if(!("pt" %in% colnames(dataframe))) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+        break
+      }
+      
+      r.X.1 <- rct[rct$X == 1, "pt"][[1]] / mean(dataframe[dataframe$S == 1, "X"])
+      r.X.0 <-  rct[rct$X == 0, "pt"][[1]] / (1-mean(dataframe[dataframe$S == 1, "X"]))
+      r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
+      
+    } else { # full oracle
+      
+      if(!("pt" %in% colnames(dataframe)) | !("pr" %in% colnames(dataframe)) ) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+        break
+      }
+      
+      r.X <- rct$pt /  rct$pr
+      
+    }
+    
+    
+    weights <- ifelse(rct$A == 1, r.X/e.hat, r.X/(1-e.hat))
+    
     
   } else {
-    e.hat.X1 = mean(rct[rct$X == 1, "A"])
-    e.hat.X0 = mean(rct[rct$X == 0, "A"])
+    
+    e.hat.X1 <- mean(rct[rct$X == 1, "A"])
+    e.hat.X0 <- mean(rct[rct$X == 0, "A"])
+    
+    if (!oracle.pt & !oracle.pr){
+      
+      pt.hat <- mean(dataframe[dataframe$S == 0, "X"])
+      
+      r.X.1.treated <- ( pt.hat / mean(rct$X) )*(1/e.hat.X1)
+      r.X.1.control <- ( pt.hat / mean(rct$X) ) *(1/(1-e.hat.X1))
+      
+      r.X.0.treated <- ( (1 - pt.hat)/ (1-mean(rct$X)) )*(1/e.hat.X0)
+      r.X.0.control <-  ( (1 - pt.hat)/ (1-mean(rct$X)) )*(1/(1-e.hat.X0))
+      
+      
+      weights <- case_when(rct$X == 1 & rct$A == 1 ~ r.X.1.treated,
+                       rct$X == 1 & rct$A == 0 ~ r.X.1.control,
+                       rct$X == 0 & rct$A == 1 ~ r.X.0.treated,
+                       rct$X == 0 & rct$A == 0 ~ r.X.0.control)
+      
+    } else if (!oracle.pt & oracle.pr){
+      
+      if(!("pr" %in% colnames(dataframe)) ) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+        break
+      }
+      
+      oracle.pt <- rct[rct$X == 1, "pt"][[1]]
+      
+      r.X.1.treated <- oracle.pt / mean(dataframe[dataframe$S == 1 & dataframe$A == 1, "X"])
+      r.X.1.control <- oracle.pt / mean(dataframe[dataframe$S == 1 & dataframe$A == 0, "X"])
+      
+      r.X.0.treated <- (1- oracle.pt)/ (1-mean(dataframe[dataframe$S == 1 & dataframe$A == 1, "X"]))
+      r.X.0.control <- (1- oracle.pt)/ (1-mean(dataframe[dataframe$S == 1 & dataframe$A == 0, "X"]))
+      
+      
+      weights <- case_when(rct$X == 1 & rct$A == 1 ~ r.X.1.treated,
+                           rct$X == 1 & rct$A == 0 ~ r.X.1.control,
+                           rct$X == 0 & rct$A == 1 ~ r.X.0.treated,
+                           rct$X == 0 & rct$A == 0 ~ r.X.0.control)
+      
+    } else if  (oracle.pt & !oracle.pr){
+      
+      if(!("pt" %in% colnames(dataframe))) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+        break
+      }
+      
+      oracle.pr <- rct[rct$X == 1, "pr"][[1]]
+      
+      r.X.1.treated <- mean(dataframe[dataframe$S == 0, "X"]) / oracle.pr
+      r.X.1.control <- mean(dataframe[dataframe$S == 0, "X"]) / oracle.pr
+      
+      r.X.0.treated <- (1- mean(dataframe[dataframe$S == 0, "X"]))/ (1-oracle.pr)
+      r.X.0.control <- (1- mean(dataframe[dataframe$S == 0, "X"]))/ (1-oracle.pr)
+      
+      
+      weights <- case_when(rct$X == 1 & rct$A == 1 ~ r.X.1.treated/e.hat.X1,
+                           rct$X == 1 & rct$A == 0 ~ r.X.1.control/(1-e.hat.X1),
+                           rct$X == 0 & rct$A == 1 ~ r.X.0.treated/e.hat.X0,
+                           rct$X == 0 & rct$A == 0 ~ r.X.0.control/(1-e.hat.X0))
+      
+    } else { # full oracle
+      
+      if(!("pt" %in% colnames(dataframe)) | !("pr" %in% colnames(dataframe)) ) {
+        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
+        break
+      }
+      
+      oracle.pr <- rct[rct$X == 1, "pr"][[1]]
+      oracle.pt <- rct[rct$X == 1, "pt"][[1]]
+    
+      r.X.1.treated <- oracle.pt / oracle.pr
+      r.X.1.control <- oracle.pt / oracle.pr
+      
+      r.X.0.treated <- (1-oracle.pt)/ (1-oracle.pr)
+      r.X.0.control <- (1- oracle.pt)/ (1-oracle.pr)
+      
+      
+      weights <- case_when(rct$X == 1 & rct$A == 1 ~ r.X.1.treated/e.hat.X1,
+                           rct$X == 1 & rct$A == 0 ~ r.X.1.control/(1-e.hat.X1),
+                           rct$X == 0 & rct$A == 1 ~ r.X.0.treated/e.hat.X0,
+                           rct$X == 0 & rct$A == 0 ~ r.X.0.control/(1-e.hat.X0))
+      
+    }
+
+    
   }
   
-  
-  e.hat <- ifelse(rct$X == 1, e.hat.X1, e.hat.X0)
-  
-  if (!oracle.pt & !oracle.pr){
-    
-    r.X.1 <- mean(dataframe[dataframe$S == 0, "X"]) / mean(dataframe[dataframe$S == 1, "X"])
-    r.X.0 <- (1- mean(dataframe[dataframe$S == 0, "X"]))/ (1-mean(dataframe[dataframe$S == 1, "X"]))
-    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
-    
-  } else if (!oracle.pt & oracle.pr){
-    
-    if(!("pr" %in% colnames(dataframe)) ) {
-      print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
-      break
-    }
-    
-    r.X.1 <- mean(dataframe[dataframe$S == 0, "X"]) / rct[rct$X == 1, "pr"][[1]]
-    r.X.0 <- (1- mean(dataframe[dataframe$S == 0, "X"]))/   rct[rct$X == 0, "pr"][[1]]
-    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
-    
-  } else if  (oracle.pt & !oracle.pr){
-    
-    if(!("pt" %in% colnames(dataframe))) {
-      print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
-      break
-    }
-    
-    r.X.1 <- rct[rct$X == 1, "pt"][[1]] / mean(dataframe[dataframe$S == 1, "X"])
-    r.X.0 <-  rct[rct$X == 0, "pt"][[1]] / (1-mean(dataframe[dataframe$S == 1, "X"]))
-    r.X <- ifelse(rct$X == 1, r.X.1, r.X.0)
-    
-  } else { # full oracle
-    
-    if(!("pt" %in% colnames(dataframe)) | !("pr" %in% colnames(dataframe)) ) {
-      print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
-      break
-    }
-    
-    r.X <- rct$pt /  rct$pr
-    
-  }
-  
-  mean.Y1 = mean(A*Y*r.X/e.hat)
-  mean.Y0 = mean((1-A)*Y*r.X/(1-e.hat))
+  mean.Y1 = mean(A*Y*weights)
+  mean.Y0 = mean((1-A)*Y*weights)
   
   # estimation
   if (estimand == "ATE"){
@@ -106,6 +193,10 @@ ipsw.univariate.and.categorical.X <- function(dataframe,
   
   
   return(estimate)
+  
+  
+  
+  
 }
 
 ipsw.binned <- function(dataframe,
