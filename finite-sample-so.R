@@ -47,7 +47,7 @@ for (i in 1:5000){
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
-    for (meff in seq(25, 400, by = 50)) {
+    for (meff in c(100, 500, 1000)) {
       
       # Generate data
       simulation <- toy.example(n = neff, m = meff, output.oracles = T, symetric.po = F, noisier.var.X1 = F)
