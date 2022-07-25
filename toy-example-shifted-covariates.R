@@ -16,9 +16,9 @@ shifted.covariates <- data.frame("estimate" = c(),
 for (pteff in seq(0.1, 0.5, by = 0.05)){
   print(pteff)
   
-  for (neff in c(100, 500, 1000, 5000)){
-    for (meff in c(100, 500, 1000, 5000)){
-      for (i in 1:500){
+  for (neff in c(250, 500, 1000)){
+    for (meff in c(1000)){
+      for (i in 1:10000){
         
         simulation <- toy.example(n = neff, m = meff, output.oracles = F, symetric.po = F, noisier.var.X1 = F)
         
