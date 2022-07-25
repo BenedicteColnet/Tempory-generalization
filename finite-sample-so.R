@@ -23,7 +23,7 @@ for (i in 1:10){
     
     
     # Generate data for oracle and semi oracle
-    simulation <- toy.example(n = neff, m = meff, output.oracles = T, symetric.po = F, noisier.var.X1 = F)
+    simulation <- toy.example(n = neff, m = 100, output.oracles = T, symetric.po = F, noisier.var.X1 = F)
     
     # fully oracle
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = F, oracle.pt = T, oracle.pr = T)
@@ -32,7 +32,7 @@ for (i in 1:10){
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
                           "n" = neff,
-                          "m" = meff)
+                          "m" = NA)
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
@@ -43,7 +43,7 @@ for (i in 1:10){
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
                           "n" = neff,
-                          "m" = meff)
+                          "m" = NA)
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
