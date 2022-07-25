@@ -19,8 +19,7 @@ for (i in 1:5000){
   
   print(i)
   
-  for (neff in c(25, 50, 75, seq(100, 1000, by = 100))){
-    
+  for (neff in c(25, 50, 75, seq(100, 500, by = 100))){
     
     # Generate data for oracle and semi oracle
     simulation <- toy.example(n = neff, m = 10000, output.oracles = T, symetric.po = F, noisier.var.X1 = F)
@@ -47,10 +46,11 @@ for (i in 1:5000){
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
-    for (meff in c(100, 500, 1000, 2000)) {
+    
+    for (meff in c(100, 500, 1000, 5000)) {
       
       # Generate data
-      simulation <- toy.example(n = neff, m = meff, output.oracles = T, symetric.po = F, noisier.var.X1 = F)
+      simulation <- toy.example(n = neff, m = meff, output.oracles = F, symetric.po = F, noisier.var.X1 = F)
       
       ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = F, oracle.pt = F, oracle.pr = F)
       method = "ipsw"

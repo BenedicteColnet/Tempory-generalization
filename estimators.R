@@ -107,7 +107,7 @@ ipsw.univariate.and.categorical.X <- function(dataframe,
                        rct$X == 0 & rct$A == 1 ~ r.X.0.treated,
                        rct$X == 0 & rct$A == 0 ~ r.X.0.control)
       
-    } else if (!oracle.pt & oracle.pr){
+    } else if (oracle.pt & !oracle.pr){
       
       if(!("pr" %in% colnames(dataframe)) ) {
         print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
@@ -116,11 +116,11 @@ ipsw.univariate.and.categorical.X <- function(dataframe,
       
       oracle.pt <- rct[rct$X == 1, "pt"][[1]]
       
-      r.X.1.treated <- oracle.pt / mean(dataframe[dataframe$S == 1 & dataframe$A == 1, "X"])
-      r.X.1.control <- oracle.pt / mean(dataframe[dataframe$S == 1 & dataframe$A == 0, "X"])
+      r.X.1.treated <- ( oracle.pt / mean(rct$X) )*(1/e.hat.X1)
+      r.X.1.control <- ( oracle.pt / mean(rct$X) ) *(1/(1-e.hat.X1))
       
-      r.X.0.treated <- (1- oracle.pt)/ (1-mean(dataframe[dataframe$S == 1 & dataframe$A == 1, "X"]))
-      r.X.0.control <- (1- oracle.pt)/ (1-mean(dataframe[dataframe$S == 1 & dataframe$A == 0, "X"]))
+      r.X.0.treated <- ( (1 - oracle.pt)/ (1-mean(rct$X)) )*(1/e.hat.X0)
+      r.X.0.control <-  ( (1 - oracle.pt)/ (1-mean(rct$X)) )*(1/(1-e.hat.X0))
       
       
       weights <- case_when(rct$X == 1 & rct$A == 1 ~ r.X.1.treated,
@@ -128,26 +128,9 @@ ipsw.univariate.and.categorical.X <- function(dataframe,
                            rct$X == 0 & rct$A == 1 ~ r.X.0.treated,
                            rct$X == 0 & rct$A == 0 ~ r.X.0.control)
       
-    } else if  (oracle.pt & !oracle.pr){
+    } else if  (!oracle.pt & oracle.pr){
       
-      if(!("pt" %in% colnames(dataframe))) {
-        print("Error: should provide a data set with oracles quantities to proceed with option 'oracle.r'.")
-        break
-      }
-      
-      oracle.pr <- rct[rct$X == 1, "pr"][[1]]
-      
-      r.X.1.treated <- mean(dataframe[dataframe$S == 0, "X"]) / oracle.pr
-      r.X.1.control <- mean(dataframe[dataframe$S == 0, "X"]) / oracle.pr
-      
-      r.X.0.treated <- (1- mean(dataframe[dataframe$S == 0, "X"]))/ (1-oracle.pr)
-      r.X.0.control <- (1- mean(dataframe[dataframe$S == 0, "X"]))/ (1-oracle.pr)
-      
-      
-      weights <- case_when(rct$X == 1 & rct$A == 1 ~ r.X.1.treated/e.hat.X1,
-                           rct$X == 1 & rct$A == 0 ~ r.X.1.control/(1-e.hat.X1),
-                           rct$X == 0 & rct$A == 1 ~ r.X.0.treated/e.hat.X0,
-                           rct$X == 0 & rct$A == 0 ~ r.X.0.control/(1-e.hat.X0))
+      print("not implemented for now")
       
     } else { # full oracle
       
@@ -158,21 +141,19 @@ ipsw.univariate.and.categorical.X <- function(dataframe,
       
       oracle.pr <- rct[rct$X == 1, "pr"][[1]]
       oracle.pt <- rct[rct$X == 1, "pt"][[1]]
-    
-      r.X.1.treated <- oracle.pt / oracle.pr
-      r.X.1.control <- oracle.pt / oracle.pr
       
-      r.X.0.treated <- (1-oracle.pt)/ (1-oracle.pr)
-      r.X.0.control <- (1- oracle.pt)/ (1-oracle.pr)
+      r.X.1.treated <- ( oracle.pt / oracle.pr )*(1/e.hat.X1)
+      r.X.1.control <- ( oracle.pt / oracle.pr ) *(1/(1-e.hat.X1))
+      
+      r.X.0.treated <- ( (1 - oracle.pt)/ (1- oracle.pr) )*(1/e.hat.X0)
+      r.X.0.control <-  ( (1 - oracle.pt)/ (1- oracle.pr) )*(1/(1-e.hat.X0))
       
       
-      weights <- case_when(rct$X == 1 & rct$A == 1 ~ r.X.1.treated/e.hat.X1,
-                           rct$X == 1 & rct$A == 0 ~ r.X.1.control/(1-e.hat.X1),
-                           rct$X == 0 & rct$A == 1 ~ r.X.0.treated/e.hat.X0,
-                           rct$X == 0 & rct$A == 0 ~ r.X.0.control/(1-e.hat.X0))
-      
+      weights <- case_when(rct$X == 1 & rct$A == 1 ~ r.X.1.treated,
+                           rct$X == 1 & rct$A == 0 ~ r.X.1.control,
+                           rct$X == 0 & rct$A == 1 ~ r.X.0.treated,
+                           rct$X == 0 & rct$A == 0 ~ r.X.0.control)
     }
-
     
   }
   
