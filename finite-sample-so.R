@@ -17,6 +17,8 @@ finite.sample.semi.oracle <- data.frame("estimate" = c(),
 
 for (i in 1:10){
   
+  print(i)
+  
   for (neff in seq(25, 325, by = 50)){
     
     
