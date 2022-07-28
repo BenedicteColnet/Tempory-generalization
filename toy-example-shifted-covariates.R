@@ -10,10 +10,12 @@ options(dplyr.summarise.inform = FALSE)
 
 shifted.covariates <- data.frame("estimate" = c(),
                                  "pt" = c(), 
+                                 "pr" = c(),
                                  "covariate.set" =  c(),
                                  "n" = c())
 
 for (pteff in seq(0.1, 0.9, by = 0.05)){
+  
   print(pteff)
   
   for (neff in c(250, 500, 1000)){
@@ -37,17 +39,16 @@ for (pteff in seq(0.1, 0.9, by = 0.05)){
             
             new.row <- data.frame("estimate" = c(extended, minimal),
                                   "pt" = c(pteff, pteff),
+                                  "pr" = c(preff, preff),
                                   "covariate.set" = c("Extended", "Minimal"),
                                   "n" = c(neff, neff),
                                   "m" =  c(meff, meff))
             
             shifted.covariates <- rbind(shifted.covariates, new.row)
         }
-        
       } 
     }
   }
-  
 }
 
 write.csv(shifted.covariates, "./results/toy.example.shifted.covariates.csv", row.names = TRUE)
