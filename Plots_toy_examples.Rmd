@@ -1,0 +1,573 @@
+---
+title: "Plots & Figures"
+author:
+  - Bénédicte Colnet [Inria, Paris-Saclay]
+date: "June 2022"
+output:
+  html_document:
+    code_folding: "hide"
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+  pdf_document:
+    toc: yes
+abstract: | 
+  This script reproduces all the plots from the paper entitled "Variable selection when re-weighting randomized controlled trials". For simulatiosn, data are generated with separate scripts and outputs are stored in the folder entitled "results". This notebook only reads these results except for small additional illustrative Figures or simulations.
+---
+ 
+```{r setup, include=T}
+knitr::opts_chunk$set(echo = TRUE)
+
+set.seed(123)
+
+# libraries
+library(MASS) # simulations
+library(ggplot2) # plots
+library(tidyr) # pivot longer or wider
+library(dplyr) # case_when and others
+library(ggridges)
+
+source("./estimators.R")
+source("./generateDGPs.R")
+
+options(dplyr.summarise.inform = FALSE)
+```
+
+
+# Data generative process visualization
+
+
+```{r}
+N.for.plot = 15000
+
+p.Y0 <- rnorm(n = N.for.plot, mean = 0, sd = 1)
+p.Y1.hetero.X1 <- rnorm(n = N.for.plot, mean = 10, sd = 2*1)
+p.Y1.X1 <- rnorm(n = N.for.plot, mean = 10, sd = 1)
+p.Y1.X0 <- rnorm(n = N.for.plot, mean = 5, sd = 1)
+
+DGP.for.plot <- data.frame("Y" = c(p.Y0, p.Y1.X1, p.Y1.X0, p.Y1.hetero.X1),
+                           "DGP" = c(rep("any X, Y(0)", N.for.plot), 
+                                     rep("X = 1, Y(1)", N.for.plot), 
+                                     rep("X = 0, Y(1)", N.for.plot),
+                                     rep("X = 1, Y(1),\n if heteroscedasticity", N.for.plot)))
+```
+
+
+
+```{r}
+ggplot(DGP.for.plot, aes(x = Y, y = DGP, group = DGP, fill = DGP)) + 
+  geom_density_ridges(alpha = 0.6) +
+  theme_classic() + 
+  scale_fill_manual(values=c("#A2A399", "#149AD8", "#E69F00", "#EC420B"), name = "") +
+  xlab("Y") +
+  ylab("Density") +
+  theme(legend.position="none") +
+  #theme(legend.position = c(0.82, 0.274)) +
+  #theme( legend.text = element_text(size = 8, face = "bold")) +
+  annotate(geom="text", x=0.2, y=1.5, label='atop(bold("Y(0)"))', size = 4, parse = TRUE) +
+  annotate(geom="text", x=5.5, y=2.4, label='atop(bold("Y(1) | X = 0"))', size = 4, color = "darkblue", parse = TRUE) +
+  annotate(geom="text", x=11, y=3.4, label='atop(bold("Y(1) | X = 1"))', size = 4, color = "darkorange", parse = TRUE) +
+  annotate(geom="text", x=20, y=4.5, label='atop(bold("Y(1) | X = 1"))', size = 4, color = "red", parse = TRUE) +
+  annotate(geom="text", x=0.15, y=4.9, label="heteroscedasticity", size = 2.9, color = "red") +
+  annotate(geom="text", x=0.15, y=3.8, label="homoscedasticity", size = 2.9, color = "darkorange") +
+  xlim(-6, 23) +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) + 
+  geom_segment(aes(x = 0.05, y = 4.7, xend = 1.2, yend = 4.7),
+                  arrow = arrow(length = unit(0.15, "cm")), color = "red") +
+  geom_segment(aes(x = 0.05, y = 3.6, xend = 1.2, yend = 3.6),
+                  arrow = arrow(length = unit(0.15, "cm")), color = "darkorange")
+  # geom_vline(xintercept = 10, linetype = "dashed", color = "#EC420B", alpha = 0.6, size = 0.8) +
+  # geom_vline(xintercept = 5, linetype = "dashed", color = "#149AD8", alpha = 0.6, size = 0.8) +
+  # geom_vline(xintercept = 0, linetype = "dashed", color = "#A2A399", alpha = 0.6, size = 0.8)
+ggsave("./fig/toy_example_response_level.pdf", width = 4, height = 3)
+```
+
+
+# Introduction to toy example
+
+```{r}
+simulated.RCT <- toy.example(n = 150, m = 100, noisier.var.X1 = T, factor.var = 2)
+```
+
+```{r}
+# focus on trial
+simulated.RCT <- simulated.RCT[simulated.RCT$S == 1,]
+
+# overall effect
+estimated.ATE <- difference.in.means(simulated.RCT)
+estimated.ATE.CI <- t.test(simulated.RCT[simulated.RCT$A == 1, "Y"], simulated.RCT[simulated.RCT$A == 0, "Y"])$conf.int
+
+# X = 1
+estimated.ATE.X.1 <- difference.in.means(simulated.RCT[simulated.RCT$X == 1,])
+estimated.ATE.X.1.CI <- t.test(simulated.RCT[simulated.RCT$A == 1 & simulated.RCT$X == 1, "Y"], simulated.RCT[simulated.RCT$A == 0 & simulated.RCT$X == 1, "Y"])$conf.int
+
+# X = 0
+estimated.ATE.X.0 <- difference.in.means(simulated.RCT[simulated.RCT$X == 0,])
+estimated.ATE.X.0.CI <- t.test(simulated.RCT[simulated.RCT$A == 1 & simulated.RCT$X == 0, "Y"], simulated.RCT[simulated.RCT$A == 0 & simulated.RCT$X == 0, "Y"])$conf.int
+
+
+ate.stratified <- data.frame("ATE" = c(estimated.ATE, estimated.ATE.X.1, estimated.ATE.X.0),
+                             "conf.inf" = c(estimated.ATE.CI[[1]], estimated.ATE.X.1.CI[[1]], estimated.ATE.X.0.CI[[1]]),
+                             "conf.sup" = c(estimated.ATE.CI[[2]], estimated.ATE.X.1.CI[[2]], estimated.ATE.X.0.CI[[2]]),
+                             "Strata" = c("All individuals", "X=1", "X=0"))
+```
+
+```{r}
+ggplot(ate.stratified, aes(x = Strata, y = ATE, color = Strata)) +
+  geom_point(size = 3.5) +
+  geom_errorbar(aes(ymin=conf.inf, ymax=conf.sup), width=.2,
+                 position=position_dodge(0.05), size = 1.5) +
+  theme_minimal() + 
+  #coord_flip() +
+  xlab("") +
+  ylab("Estimated effect") +
+  theme(axis.text.x = element_text(size= 14, face="bold", color = "black"),
+        axis.text.y = element_text(size= 11, face="bold", color = "black"),
+        legend.position = "none") + 
+  scale_color_manual(values=c("#222027",  "#56B4E9", "#E69F00")) 
+ggsave("./fig/toy-example-stratification.png", width = 4, height = 3)
+```
+
+
+# Simple simulation to illustrate it works and compare $\pi$ and $\hat \pi$
+
+
+```{r}
+toy.example.pi.hat.or.not <- data.frame("estimate" = c(),
+                                        "estimator" = c())
+
+
+for (i in 1:1000){
+  
+  # generate data
+  simulation <- toy.example(n = 150, m = 1000, output.oracles = F, symetric.po = F, noisier.var.X1 = F, factor.var = 0)
+  
+  ipsw.pi.oracle <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = T, oracle.pt = F, oracle.pr = F)
+  
+  ipsw.pi.hat <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = F, oracle.pt = F, oracle.pr = F)
+  
+  ht <- difference.in.means(dataframe = simulation, estimand = "ATE", oracle.e.too = T)
+  
+  dm  <- difference.in.means(dataframe = simulation, estimand = "ATE", oracle.e.too = F)
+  
+  
+  new.row <- data.frame("estimate" = c(ipsw.pi.oracle, ipsw.pi.hat, ht, dm),
+                        "estimator" = c("IPSW - pi oracle", "IPSW - pi estimated", "Horvitz-Thomson", "Difference-in-means"))
+  
+  toy.example.pi.hat.or.not <- rbind(toy.example.pi.hat.or.not, new.row)
+}
+
+
+```
+
+```{r}
+ggplot(toy.example.pi.hat.or.not, aes(x = estimator, y = estimate, fill = estimator)) +
+  geom_boxplot(alpha = 0.8) +
+  geom_hline(aes(yintercept = 0.3*10+0.7*5, color = "ATE in Target population"),  size = 1, linetype = "dashed", color = "#EA471F") + 
+  geom_hline(aes(yintercept = 0.75*10+0.25*5, color = "ATE in Trial population"), size = 1, linetype="dashed", color = "#475E96")  +
+  theme_minimal() +
+  scale_fill_manual(values=c("#999999", "#D1CFCE", "#E69F00", "#EC420B")) +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 9.5, face = "bold"), legend.position = "none", text = element_text(size = 12, face = "bold")) +
+  ylab("ATE") +
+  xlab("")  +
+  annotate("text", x=3.2, y=8.8, label= 'atop(bold("Trial\'s ATE"))', color = "#475E96", size = 3.8, parse = TRUE)  +
+  annotate("text", x=0.9, y=5.8, label= 'atop(bold("Target\'s ATE"))', color = "#EA471F", size = 3.8, parse = T) 
+
+ggsave("./fig/toy_example_pi_hat_or_not.pdf", width = 7, height = 4)
+```
+
+
+# Heterosckedasticity
+
+
+```{r}
+toy.example.simulations.hetero <- data.frame("estimate" = c(),
+                                      "estimator" = c(),
+                                      "DGP" = c())
+
+
+for (i in 1:1500){
+  for (DGP in c("heteroscedasticity", "homoscedasticity")){
+    
+    if (DGP == "homoscedasticity"){
+      noiser = FALSE
+    } else {
+      noiser = TRUE
+    }
+    
+    # generate data
+    simulation <- toy.example(n = 100, m = 3000, output.oracles = F, symetric.po = F, noisier.var.X1 = noiser, factor.var = 3)
+    
+    # estimate
+    ipsw.fully.estimated <- ipsw.univariate.and.categorical.X(dataframe = simulation, estimand = "ATE", oracle.e = F, oracle.pt = F, oracle.pr = F)
+    naive <- difference.in.means(dataframe = simulation, estimand = "ATE", oracle.e.too = F)
+           
+    # store result      
+    new.row <- data.frame("estimate" = c(ipsw.fully.estimated, naive),
+                          "estimator" = c("Re-weighted", "Naive Trial"),
+                          "DGP" = rep(DGP, 2))
+           
+    toy.example.simulations.hetero <- rbind(toy.example.simulations.hetero, new.row)
+
+  }
+}
+```
+
+
+```{r}
+ggplot(toy.example.simulations.hetero[toy.example.simulations.hetero$DG == "heteroscedasticity", ], aes(x = estimator, y = estimate, fill = estimator)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_hline(aes(yintercept = 0.3*10+0.7*5, color = "ATE in Target population"),  size = 1, linetype = "dashed", color = "#EA471F") + 
+  geom_hline(aes(yintercept = 0.75*10+0.25*5, color = "ATE in Trial population"), size = 1, linetype="dashed", color = "#475E96")  +
+  theme_minimal() +
+  scale_fill_manual(values=c("#999999", "#E69F00")) +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 12, face = "bold"), legend.position = "none", text = element_text(size = 12, face = "bold")) +
+  ylab("") +
+  xlab("")  +
+  ylim(5,10) +
+ theme(axis.text.y=element_blank(), #remove y axis labels
+        axis.ticks.y=element_blank()) #remove y axis ticks
+  #annotate("text", x=2.2, y=9, label= "Trial's ATE", color = "#475E96", size = 3)  +
+  #annotate("text", x=0.77, y=6.3, label= "Target's ATE", color = "#EA471F", size = 3) 
+ggsave("./fig/toy_example_estimates_hete.pdf", width = 2.5, height = 3.8)
+
+ggplot(toy.example.simulations.hetero[toy.example.simulations.hetero$DG == "homoscedasticity", ], aes(x = estimator, y = estimate, fill = estimator)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_hline(aes(yintercept = 0.3*10+0.7*5, color = "ATE in Target population"),  size = 1, linetype = "dashed", color = "#EA471F") + 
+  geom_hline(aes(yintercept = 0.75*10+0.25*5, color = "ATE in Trial population"), size = 1, linetype="dashed", color = "#475E96")  +
+  theme_minimal() +
+  scale_fill_manual(values=c("#999999", "#E69F00")) +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 9.5, face = "bold"), legend.position = "none", text = element_text(size = 12, face = "bold")) +
+  ylab("ATE") +
+  xlab("") +
+  ylim(5,10) +
+  annotate("text", x=2, y=8.8, label= 'atop(bold("Trial\'s ATE"))', color = "#475E96", size = 3.3, parse = TRUE)  +
+  annotate("text", x=0.9, y=6.1, label= 'atop(bold("Target\'s ATE"))', color = "#EA471F", size = 3.3, parse = T)
+ggsave("./fig/toy_example_estimates_homo.pdf", width = 2.5, height = 3.8)
+
+```
+# Heatmaps to show variance's relative size
+
+This reads the output from the script `toy-example-simulations.R`.
+
+```{r}
+output.toy.examples <- read.csv("./results/toy.example.varying.n.m.csv")
+```
+
+```{r}
+modified <- output.toy.examples%>%
+  group_by(n,m, estimator) %>%
+  summarise(Variance = round(var(estimate),1))
+```
+
+```{r}
+modified$estimator.renamed <- case_when(modified$estimator == "ipsw" ~ "Fully estimated",
+                                        modified$estimator == "oracle" ~ "Oracle",
+                                        modified$estimator == "semi-oracle" ~ "Semi-oracle")
+
+
+modified$estimator.renamed <- factor(modified$estimator.renamed , levels = c("Oracle", "Semi-oracle", "Fully estimated"))
+```
+
+
+```{r}
+# subset of n is selected for better readability
+ggplot(modified[modified$n > 50 & modified$n < 200,], aes(n, m, fill= Variance)) + 
+  geom_tile(color = "black") +
+  #geom_raster(aes(fill = Variance), interpolate=TRUE) +
+  scale_fill_gradient2(low = "#075AFF",
+                       mid = "#FFFFCC",
+                       high = "#FF0000")  +
+  facet_grid(~estimator.renamed) +
+  theme_classic()  +
+  theme(legend.position = "bottom") +
+  xlab( expression(paste("Trial sample's size (", n, ")"))) +
+  ylab( expression(paste("Target sample's size (", m, ")"))) +
+    geom_text(aes(label = Variance), color = "black", size = 2.7, face = "bold") 
+ggsave("./fig/heatmap-toy-examples.png", height = 3, width = 8)
+  
+```
+
+
+## Additional covariates
+
+Now, consider a situation with multiple covariates.
+
+
+```{r}
+big.simulation <- simulation.multivariate.categorical.X(n = 50000, m = 50000, output.oracles = T)
+ATE.RCT <- mean(big.simulation[big.simulation$S == 1, "Y_1"]) - mean(big.simulation[big.simulation$S == 1, "Y_0"])
+ATE.Target <- mean(big.simulation[big.simulation$S == 0, "Y_1"]) - mean(big.simulation[big.simulation$S == 0, "Y_0"])
+```
+
+
+```{r}
+result.adding.covariates <- data.frame("estimate" = c(),
+                                       "covariate.set" = c())
+
+for (i in 1:1000){
+  simulation <- simulation.multivariate.categorical.X(n = 500, m = 10000)
+  simulation$X3 <- as.factor(simulation$X3)
+  
+  dm <- difference.in.means(simulation, oracle.e.too = F)
+ 
+  tau.hat.minimal <- ipsw.binned(simulation, covariates_names_vector = c("X1"), oracle.e = F, oracle.pt.data = F, oracle.pr = F, outcome_name = "Y", treatment_name = "A")
+  
+  tau.hat.extended <- ipsw.binned(simulation, covariates_names_vector = c("X1", "X3"), oracle.e = F, oracle.pt.data = F, oracle.pr = F, outcome_name = "Y", treatment_name = "A")
+  
+  
+ new.row <- data.frame("estimate" = c(dm, tau.hat.minimal, tau.hat.extended),
+                                       "covariate.set" = c("DM", "minimal", "extended"))
+ 
+ result.adding.covariates <- rbind(result.adding.covariates, new.row)
+}
+
+```
+
+
+```{r}
+result.adding.covariates$estimator.renamed <- case_when(result.adding.covariates$covariate.set == "DM" ~ "Difference-in-means \n (0 covariate)",
+                                                        result.adding.covariates$covariate.set == "minimal" ~ "Minimal set \n (1 covariate)",
+                                                        result.adding.covariates$covariate.set == "extended" ~ "Extended set \n (2 covariates)")
+
+
+result.adding.covariates$estimator.renamed <- factor(result.adding.covariates$estimator.renamed , levels = c("Difference-in-means \n (0 covariate)", "Minimal set \n (1 covariate)", "Extended set \n (2 covariates)"))
+```
+
+
+```{r}
+ggplot(result.adding.covariates, aes(x =  estimator.renamed, y = estimate, fill = estimator.renamed)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_hline(aes(yintercept = ATE.Target, color = "ATE in Target population"),  size = 0.8, linetype = "dashed", color = "#EA471F") +
+  geom_hline(aes(yintercept = ATE.RCT, color = "ATE in Trial population"), size = 0.8, linetype="dashed", color = "#475E96")  +
+  theme_minimal() +
+  scale_fill_manual(values=c("#999999", "#E69F00", "#EC560B")) +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 10, face = "bold"), legend.position = "none", axis.text = element_text(size = 9, face = "bold", color = "black")) +
+  ylab("ATE") +
+  xlab("") 
+ggsave("./fig/toy_precision_covariates.pdf", width = 4, height = 4)
+```
+
+```{r}
+shifted.covariates <- read.csv("./results/toy.example.shifted.covariates.csv")
+shifted.covariates$n <- as.factor(shifted.covariates$n)
+```
+
+```{r}
+additional.covariates.modified <- shifted.covariates %>%
+  group_by(covariate.set, pt, n) %>%
+  summarise(variance = var(estimate)) %>%
+  pivot_wider(names_from = c(covariate.set), values_from = variance)
+
+additional.covariates.modified$inflation <- additional.covariates.modified$Extended / additional.covariates.modified$Minimal
+
+additional.covariates.modified$truth <-   (additional.covariates.modified$pt*additional.covariates.modified$pt)/0.5 + (1-additional.covariates.modified$pt)*(1-additional.covariates.modified$pt)/0.5
+
+additional.covariates.modified$borne.sup <- 2*additional.covariates.modified$truth
+```
+
+
+```{r}
+ggplot(additional.covariates.modified, aes(x = pt, y = inflation, color = n)) +
+  geom_point() +
+ geom_line(aes(x = pt, y = truth), color = "darkorange", size = 0.8, alpha = 0.8) +
+  geom_line(aes(x = pt, y = borne.sup), color = "darkblue", size = 0.8, alpha = 0.8, linetype = "dashed") +
+  theme_classic() +
+  ylab("Variance inflation") +
+  xlab(expression(p[T](x[2]==1)))
+ggsave("./fig/shifted_covariates.pdf", width = 4, height = 4)
+```
+
+# Semi-synthetic simulations
+
+```{r}
+# Load all data necessary for semi-synthetic simulation
+load("./data/semi-synthetic-DGP.rds")
+load("./data/semi-synthetic-oracle-target.rds")
+load("./data/semi-synthetic-oracle-trial.rds")
+
+# covariates needed
+BASELINE_COVARIATES <- c("time_to_treatment.categorized", "systolicBloodPressure.categorized", "time_to_treatment", "Glasgow.initial", "gender", "age.categorized")
+MINIMAL_SET <- c("time_to_treatment.categorized",  "Glasgow.initial")
+```
+
+```{r}
+# generate the ground truth
+ground.truth <-  simulation.semi.synthetic(source.data = total.with.overlap, generate.associated.ground.truth = T, output.oracles = TRUE)
+
+TARGET.ATE <- mean(ground.truth[ground.truth$S == 0, "Y_1"]) - mean(ground.truth[ground.truth$S == 0, "Y_0"])
+TARGET.ATE
+
+RCT.ATE <- mean(ground.truth[ground.truth$S == 1, "Y_1"]) - mean(ground.truth[ground.truth$S == 1, "Y_0"])
+RCT.ATE
+```
+
+```{r}
+semisynthetic.varying.n.m <- read.csv("./results/semi.synthetic.minimal.csv")
+semisynthetic.varying.n.m$m  <- as.factor(semisynthetic.varying.n.m$m)
+semisynthetic.varying.n.m$n  <- as.factor(semisynthetic.varying.n.m$n)
+```
+
+Unbiasedness 
+
+```{r}
+ggplot(semisynthetic.varying.n.m[semisynthetic.varying.n.m$n == 2000,], aes(x = m, y = estimate, fill = method)) +
+  geom_boxplot() +
+  facet_grid(~additional.noise) +
+  geom_hline(yintercept = TARGET.ATE) +
+  geom_hline(yintercept = RCT.ATE)
+```
+
+
+
+```{r}
+source("./generateDGPs.R")
+# generate the ground truth
+ground.truth <-  simulation.semi.synthetic(source.data = total.with.overlap, generate.associated.ground.truth = T, output.oracles = TRUE)
+
+TARGET.ATE <- mean(ground.truth[ground.truth$S == 0, "Y_1"]) - mean(ground.truth[ground.truth$S == 0, "Y_0"])
+TARGET.ATE
+
+RCT.ATE <- mean(ground.truth[ground.truth$S == 1, "Y_1"]) - mean(ground.truth[ground.truth$S == 1, "Y_0"])
+RCT.ATE
+
+
+result.adding.covariates <- data.frame("estimate" = c(),
+                                       "covariate.set" = c())
+
+for (i in 1:100){
+  simulation <- simulation.semi.synthetic(n = 2000, m = 8000, source.data = total.with.overlap, extra.noise.on.high.ttt = T)
+ 
+  dm <- difference.in.means(simulation, oracle.e.too = F)
+ 
+  tau.hat.minimal <- ipsw.binned(simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt.data = F, oracle.pr = F, outcome_name = "Y", treatment_name = "A")
+  
+  tau.hat.extended <- ipsw.binned(simulation, covariates_names_vector = c(MINIMAL_SET, "gender"), oracle.e = F, oracle.pt.data = F, oracle.pr = F, outcome_name = "Y", treatment_name = "A")
+  
+  
+ new.row <- data.frame("estimate" = c(dm, tau.hat.minimal, tau.hat.extended),
+                                       "covariate.set" = c("DM", "minimal", "extended"))
+ 
+ result.adding.covariates <- rbind(result.adding.covariates, new.row)
+}
+```
+
+```{r}
+result.adding.covariates$estimator.renamed <- case_when(result.adding.covariates$covariate.set == "DM" ~ "Difference-in-means \n (0 covariate)",
+                                                        result.adding.covariates$covariate.set == "minimal" ~ "Minimal set \n (1 covariate)",
+                                                        result.adding.covariates$covariate.set == "extended" ~ "Extended set \n (2 covariates)")
+
+result.adding.covariates$estimator.renamed <- factor(result.adding.covariates$estimator.renamed , levels = c("Difference-in-means \n (0 covariate)", "Minimal set \n (1 covariate)", "Extended set \n (2 covariates)"))
+```
+
+
+```{r}
+ggplot(result.adding.covariates, aes(x =  estimator.renamed, y = estimate, fill = estimator.renamed)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_hline(aes(yintercept = TARGET.ATE, color = "ATE in Target population"),  size = 0.8, linetype = "dashed", color = "#EA471F") +
+  geom_hline(aes(yintercept = RCT.ATE, color = "ATE in Trial population"), size = 0.8, linetype="dashed", color = "#475E96")  +
+  theme_minimal() +
+  scale_fill_manual(values=c("#999999", "#E69F00", "#EC560B")) +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 10, face = "bold"), legend.position = "none", axis.text = element_text(size = 9, face = "bold", color = "black")) +
+  ylab("ATE") +
+  xlab("") 
+#ggsave("./fig/toy_precision_covariates.pdf", width = 4, height = 4)
+```
+
+
+
+```{r}
+ggplot(semisynthetic.varying.n.m[semisynthetic.varying.n.m$n == 1000 & semisynthetic.varying.n.m$m == 200 & semisynthetic.varying.n.m$additional.noise == F, ], aes(x = method, y = estimate, fill = method)) +
+  geom_boxplot() +
+  geom_hline(yintercept = TARGET.ATE) +
+  geom_hline(yintercept = RCT.ATE)
+```
+
+
+```{r}
+modified <- semisynthetic.varying.n.m[semisynthetic.varying.n.m$method != "DM" & semisynthetic.varying.n.m$additional.noise == F,]%>%
+  group_by(n,m, method) %>%
+  summarise(Variance = round(var(estimate),1))
+```
+
+```{r}
+modified$estimator.renamed <- case_when(modified$method == "IPSW" ~ "Fully estimated",
+                                        modified$method == "oracle" ~ "Oracle",
+                                        modified$method == "semi-oracle" ~ "Semi-oracle")
+
+
+modified$estimator.renamed <- factor(modified$estimator.renamed , levels = c("Oracle", "Semi-oracle", "Fully estimated"))
+```
+
+
+```{r}
+ggplot(modified, aes(n, m, fill= Variance)) + 
+  geom_tile(color = "black") +
+  #geom_raster(aes(fill = Variance), interpolate=TRUE) +
+  scale_fill_gradient2(low = "#075AFF",
+                       mid = "#FFFFCC",
+                       high = "#FF0000")  +
+  facet_grid(~estimator.renamed) +
+  theme_classic()  +
+  geom_text(aes(label = Variance), color = "black", size = 2.7, face = "bold") +
+  theme(legend.position = "bottom") 
+ggsave("./fig/semi.synthetic.minimal.png", width = 3, height = 3)
+```
+
+# e.hat estimated
+
+```{r}
+semi.synthetic.e.hat <- read.csv("./results/semi.synthetic.e.hat.csv")
+
+semi.synthetic.e.hat$estimator.renamed <- case_when(semi.synthetic.e.hat$method == "ipsw" ~ "IPSW-1",
+                                        semi.synthetic.e.hat$method == "ipsw.e.hat" ~ "IPSW-2",
+                                        semi.synthetic.e.hat$method == "DM" ~ "Difference-in-means",
+                                        semi.synthetic.e.hat$method == "HT" ~ "Horvitz-Thomson")
+
+
+modified$estimator.renamed <- factor(modified$estimator.renamed , levels = c("Oracle", "Semi-oracle", "Fully estimated"))
+```
+
+```{r}
+ggplot(semi.synthetic.e.hat, aes(x = method, y = estimate, fill = method)) +
+ geom_boxplot(alpha = 0.9) +
+  facet_grid(~additional.noise) + 
+  geom_hline(aes(yintercept = TARGET.ATE, color = "ATE in Target population"),  size = 0.8, linetype = "dashed", color = "#EA471F") + 
+  geom_hline(aes(yintercept = RCT.ATE, color = "ATE in Trial population"), size = 0.8, linetype="dashed", color = "#475E96")  +
+  theme_minimal() +
+  scale_fill_manual(values=c("#D1D5DD", "#808080", "#E8720E",  "#E69F00")) +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 10, face = "bold"), legend.position = "top") +
+  ylab("ATE") +
+  xlab("") 
+```
+
+
+## Shifted covariates
+
+
+```{r}
+semi.synthetic.X.shifted <- read.csv("./results/toy.example.shifted.covariates.csv")
+#semi.synthetic.X.shifted$m  <- as.factor(semi.synthetic.X.shifted$m)
+semi.synthetic.X.shifted$n  <- as.factor(semi.synthetic.X.shifted$n)
+```
+
+```{r}
+semi.synthetic.X.shifted.for.plot <- semi.synthetic.X.shifted %>%
+  group_by(pt, set, n) %>%
+  summarise(variance = var(estimate)) %>%
+  pivot_wider(names_from = c(set), values_from = variance)
+
+semi.synthetic.X.shifted.for.plot$inflation <- semi.synthetic.X.shifted.for.plot$`extended - shifted` / semi.synthetic.X.shifted.for.plot$minimal
+
+semi.synthetic.X.shifted.for.plot$truth <- (semi.synthetic.X.shifted.for.plot$pt*semi.synthetic.X.shifted.for.plot$pt/0.22 + (1-semi.synthetic.X.shifted.for.plot$pt)*(1-semi.synthetic.X.shifted.for.plot$pt)/0.78) 
+```
+
+```{r}
+ggplot(semi.synthetic.X.shifted.for.plot, aes(x = pt, y = inflation)) +
+  geom_point() +
+  geom_line(aes(x = pt, y = truth), color = "darkorange", size = 1) +
+  theme_classic() +
+  ylab("Variance inflation")
+```
+
