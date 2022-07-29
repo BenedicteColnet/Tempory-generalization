@@ -159,7 +159,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   baseline <- (10 - total$Glasgow.initial) 
   - 2*(total$systolicBloodPressure.categorized-2)^2
   
-  cate <- 1*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized) 
+  cate <- 1*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized) - total$gender*total$gender 
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
