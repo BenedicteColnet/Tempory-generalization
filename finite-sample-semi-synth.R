@@ -13,6 +13,8 @@ source.data <- load("./data/semi-synthetic-DGP.rds")
 load("./data/semi-synthetic-oracle-target.rds")
 load("./data/semi-synthetic-oracle-trial.rds")
 
+MINIMAL_SET <- c("time_to_treatment.categorized",  "Glasgow.initial")
+
 
 finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "method" = c(),
