@@ -119,8 +119,6 @@ CRASH3.imputed$Glasgow.initial <- as.factor(CRASH3.imputed$Glasgow.initial)
 summary(CRASH3.imputed)
 ```
 
-
-
 # Traumabase
 
 ## Load Target population data data (Observational)
@@ -130,7 +128,6 @@ summary(CRASH3.imputed)
 rawData_Traumabase <- read.csv("~/Documents/data/traumabase/data/4_computed_dataset.csv")
 print(paste0("Raw traumabase data contains following number of observations: ", nrow(rawData_Traumabase)))
 ```
-
 
 ## Covariates
 
@@ -181,10 +178,6 @@ rawData_Traumabase$systolicBloodPressure <- as.numeric(rawData_Traumabase$systol
 ```{r}
 summary(rawData_Traumabase[, setdiff(RELEVANT_COVARIATES, "time_to_treatment")])
 ```
-
-
-
-Imputation (already performed and stored in `traumabase_tbi_imputed_mice_for_covariate_selection_paper.RData`)
 
 ```{r}
 vars.for.imputation <- c("Traitement.anticoagulant",
@@ -285,7 +278,7 @@ We need to make categorical some of the covariates that are initially categorica
 - Systolic Blood Pressure
 - Time to treatment
 
-We also lower a bit the granularity of Glasgow score.
+We also lower the granularity of Glasgow score so that the semi-synthetic experiment reaches the asymptotic faster (for illustration).
 
 
 ```{r}
@@ -305,13 +298,16 @@ total$time_to_treatment.categorized <- case_when(total$time_to_treatment < 60 ~ 
                                 total$time_to_treatment >= 120 &  total$time_to_treatment < 190 ~ 3,
                                 total$time_to_treatment >= 190 ~ 4)
 
+```
 
-total$Glasgow.initial <- as.integer(total$Glasgow.initial) + 2
-total$Glasgow.initial <- ifelse(total$Glasgow.initial  == 3, 4, total$Glasgow.initial)
-total$Glasgow.initial <- ifelse(total$Glasgow.initial == 15, 14, total$Glasgow.initial)
+```{r}
+total$Glasgow.initial <- as.integer(total$Glasgow.initial) + 3
+total$Glasgow.initial <- total$Glasgow.initial/2
+total$Glasgow.initial <- floor(total$Glasgow.initial)
 
 total$S <- as.factor(total$S)
 ```
+
 
 
 ```{r}
