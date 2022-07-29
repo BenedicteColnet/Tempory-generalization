@@ -155,10 +155,6 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   total <- rbind(RCT, Obs)
   total <- as.data.frame(total)
   
-  
-  total$gender <- as.numeric(total$gender)
-  
-  
   # Outcome model
   baseline <- (10 - total$Glasgow.initial) 
   - 2*(total$systolicBloodPressure.categorized-2)^2
