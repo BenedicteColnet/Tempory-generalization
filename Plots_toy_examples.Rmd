@@ -289,11 +289,121 @@ ggsave("./fig/heatmap-toy-examples.png", height = 3, width = 8)
   
 ```
 
+# Finite sample 
 
-## Additional covariates
+```{r}
+finite.sample.semi.oracle <- read.csv("./results/finite.sample.so.csv")
+```
 
-Now, consider a situation with multiple covariates.
 
+```{r}
+ggplot(finite.sample.semi.oracle[finite.sample.semi.oracle$method == "ipsw" & finite.sample.semi.oracle$m %in% c(100, 1000),], aes(x = as.factor(n), y = estimate, color = as.factor(m))) +
+  geom_boxplot(alpha = 0.9) +
+  geom_hline(aes(yintercept = 0.3*10+0.7*5, color = "ATE in Target population"),  size = 0.8, linetype = "dashed", color = "#EA471F") + 
+  geom_hline(aes(yintercept = 0.75*10+0.25*5, color = "ATE in Trial population"), size = 0.8, linetype="dashed", color = "#475E96")  +
+  theme_minimal()
+```
+
+```{r}
+finite.sample.semi.oracle <- finite.sample.semi.oracle[finite.sample.semi.oracle$n > 25 & finite.sample.semi.oracle$m %in% c(500, 5000, NA),]
+```
+
+```{r}
+big.sim <- toy.example(n = 900000, m = 100000)
+pi.0 = mean(big.sim[big.sim$S == 1 & big.sim$X == 0, "A"])
+pi.1 = mean(big.sim[big.sim$S == 1 & big.sim$X == 1, "A"])
+pr = mean(big.sim[big.sim$S == 1, "X"])
+pt = mean(big.sim[big.sim$S == 0, "X"])
+var.Y.1.X1 = var(big.sim[big.sim$S == 1 & big.sim$X == 1 & big.sim$A == 1, "Y"])
+var.Y.0.X1 = var(big.sim[big.sim$S == 1 & big.sim$X == 1 & big.sim$A == 0, "Y"])
+var.Y.1.X0 = var(big.sim[big.sim$S == 1 & big.sim$X == 0 & big.sim$A == 1, "Y"])
+var.Y.0.X0 = var(big.sim[big.sim$S == 1 & big.sim$X == 0 & big.sim$A == 0, "Y"])
+```
+
+
+```{r}
+ASYMPT.VARIANCE.MINIMAL.TOY = pt*pt/pr*( (var.Y.1.X1/pi.1) + (var.Y.1.X1/(1-pi.1))) + (1-pt)*(1-pt)/(1-pr)*( (var.Y.1.X0/pi.0) + (var.Y.1.X0/(1-pi.0)))
+ASYMPT.VARIANCE.MINIMAL.TOY
+```
+
+
+```{r}
+empirical.finite.sample.variances <- finite.sample.semi.oracle %>%
+  group_by(n,m, method) %>%
+  summarise(var = var(estimate))
+
+empirical.finite.sample.variances$empirical.variance <- empirical.finite.sample.variances$var*empirical.finite.sample.variances$n
+empirical.finite.sample.variances$finite.sample.sup <- 2*ASYMPT.VARIANCE.MINIMAL.TOY*(empirical.finite.sample.variances$n + 1)/empirical.finite.sample.variances$n
+empirical.finite.sample.variances$finite.sample.inf <- ASYMPT.VARIANCE.MINIMAL.TOY*empirical.finite.sample.variances$n/(empirical.finite.sample.variances$n + 1) - (pt*pt/pr*((1-pr)**empirical.finite.sample.variances$n)*( (var.Y.1.X1/pi.1) + (var.Y.1.X1/(1-pi.1))) + (1-pt)*(1-pt)/(1-pr)*(pr**empirical.finite.sample.variances$n)*( (var.Y.1.X0/pi.0) + (var.Y.1.X0/(1-pi.0)))) 
+
+empirical.finite.sample.variances
+```
+
+```{r}
+empirical.finite.sample.variances$m <- ifelse(is.na(empirical.finite.sample.variances$m), "∞", empirical.finite.sample.variances$m)
+```
+
+
+```{r}
+ggplot(empirical.finite.sample.variances[empirical.finite.sample.variances$method != "oracle", ], aes(x = n, y = empirical.variance, color = as.factor(m), shape = method)) +
+  geom_point(size = 3, alpha = 0.5) +
+  theme_classic() +
+  geom_line(size = 0.8, alpha = 0.5) + 
+  scale_color_manual(expression(m) ,values=c( "#0F24D2", "#0FAEEF", "#0F82EF", "#E67028")) +
+  geom_hline(yintercept = ASYMPT.VARIANCE.MINIMAL.TOY, color = "#110656", size = 0.8, alpha = 0.9) +
+  geom_line(aes(x = n, y = finite.sample.sup), linetype = "dashed", alpha = 0.6, size = 0.8, color = "#0FB7D2") +
+  geom_line(aes(x = n, y = finite.sample.inf), linetype = "dashed", alpha = 0.6, size = 0.8, color = "#0FB7D2") +
+  ylab(expression(n.Var(hat(tau)))) +
+   annotate(geom="text", x=130, y=15.5, label='atop(bold("Upper finite sample bound"))', size = 3, parse = TRUE, color = "#0FB7D2") +
+   annotate(geom="text", x=130, y=7.5, label='atop(bold("Lower finite sample bound"))', size = 3, parse = TRUE, color = "#0FB7D2") +
+  annotate(geom="text", x=400, y=ASYMPT.VARIANCE.MINIMAL.TOY-2, label='atop(bold("Asymptotic variance"))', size = 4, parse = TRUE, color = "#110656") +
+  theme(text = element_text(size = 12, face = "bold"), legend.position =  "bottom") +
+   geom_segment(aes(x = 400, y = ASYMPT.VARIANCE.MINIMAL.TOY-1.2, xend = 400, yend = ASYMPT.VARIANCE.MINIMAL.TOY),
+                  arrow = arrow(length = unit(0.3, "cm")), color = "#110656")
+ggsave("./fig/toy-example-finite-sample.png", height = 5, width = 6)
+```
+
+# Additional covariates: shifted
+
+```{r}
+shifted.covariates <- read.csv("./results/toy.example.shifted.covariates.csv")
+shifted.covariates$n <- as.factor(shifted.covariates$n)
+```
+
+```{r}
+additional.covariates.modified <- shifted.covariates[shifted.covariates$n == 250 & shifted.covariates$m == 5000,] %>%
+  group_by(covariate.set, pt, pr) %>%
+  summarise(variance = var(estimate)) %>%
+  pivot_wider(names_from = c(covariate.set), values_from = variance)
+
+additional.covariates.modified$inflation <- additional.covariates.modified$Extended / additional.covariates.modified$Minimal
+```
+
+
+```{r}
+additional.covariates.modified$truth <-   (additional.covariates.modified$pt*additional.covariates.modified$pt)/additional.covariates.modified$pr + (1-additional.covariates.modified$pt)*(1-additional.covariates.modified$pt)/(1-additional.covariates.modified$pr)
+
+additional.covariates.modified$borne.sup <- 2*additional.covariates.modified$truth
+```
+
+
+```{r}
+ggplot(additional.covariates.modified[additional.covariates.modified$pt > 0.2 & additional.covariates.modified$pt < 0.8 , ], aes(x = pt, y = inflation, color = as.factor(pr), group = as.factor(pr))) +
+  geom_point(size = 2.5) +
+ geom_line(aes(x = pt, y = truth),  size = 2, alpha = 0.3) +
+  #geom_line(aes(x = pt, y = borne.sup), color = "darkblue", size = 0.8, alpha = 0.8, linetype = "dashed") +
+  theme_minimal() +
+  scale_color_manual(expression(p[R](X[2]==1)) ,values=c( "#F4550A", "#F4A30A", "#CDF40A")) +
+  ylab("Variance inflation") +
+  theme(legend.position = "top", text = element_text(size = 12, face = "bold")) +
+  xlab(expression(p[T](X[2]==1)))
+ggsave("./fig/shifted_covariates.pdf", width = 4, height = 4)
+```
+
+
+# Additional covariates: treatment effect modifier
+
+Now, consider a situation with multiple covariates. Only $X_1$ is necessary, but we have at disposal 3 additional covariates that are treatment effect modifiers but not shifted.
 
 ```{r}
 big.simulation <- simulation.multivariate.categorical.X(n = 50000, m = 50000, output.oracles = T)
@@ -306,16 +416,16 @@ ATE.Target <- mean(big.simulation[big.simulation$S == 0, "Y_1"]) - mean(big.simu
 result.adding.covariates <- data.frame("estimate" = c(),
                                        "covariate.set" = c())
 
-for (i in 1:1000){
-  simulation <- simulation.multivariate.categorical.X(n = 500, m = 10000)
-  simulation$X3 <- as.factor(simulation$X3)
+for (i in 1:500){
+  simulation <- simulation.multivariate.categorical.X(n = 200, m = 1000, output.oracles = F)
+ 
+  simulation$X2 <- as.factor(simulation$X2)
   
   dm <- difference.in.means(simulation, oracle.e.too = F)
  
   tau.hat.minimal <- ipsw.binned(simulation, covariates_names_vector = c("X1"), oracle.e = F, oracle.pt.data = F, oracle.pr = F, outcome_name = "Y", treatment_name = "A")
   
-  tau.hat.extended <- ipsw.binned(simulation, covariates_names_vector = c("X1", "X3"), oracle.e = F, oracle.pt.data = F, oracle.pr = F, outcome_name = "Y", treatment_name = "A")
-  
+  tau.hat.extended <- ipsw.binned(simulation, covariates_names_vector = c("X1", "X2"), oracle.e = F, oracle.pt.data = F, oracle.pr = F, outcome_name = "Y", treatment_name = "A")
   
  new.row <- data.frame("estimate" = c(dm, tau.hat.minimal, tau.hat.extended),
                                        "covariate.set" = c("DM", "minimal", "extended"))
@@ -325,59 +435,32 @@ for (i in 1:1000){
 
 ```
 
-
 ```{r}
-result.adding.covariates$estimator.renamed <- case_when(result.adding.covariates$covariate.set == "DM" ~ "Difference-in-means \n (0 covariate)",
-                                                        result.adding.covariates$covariate.set == "minimal" ~ "Minimal set \n (1 covariate)",
-                                                        result.adding.covariates$covariate.set == "extended" ~ "Extended set \n (2 covariates)")
+result.adding.covariates$estimator.renamed <- case_when(result.adding.covariates$covariate.set == "DM" ~ "Difference-in-means",
+                                                        result.adding.covariates$covariate.set == "minimal" ~ "Minimal set",
+                                                        result.adding.covariates$covariate.set == "extended" ~ "Extended set")
 
 
-result.adding.covariates$estimator.renamed <- factor(result.adding.covariates$estimator.renamed , levels = c("Difference-in-means \n (0 covariate)", "Minimal set \n (1 covariate)", "Extended set \n (2 covariates)"))
+result.adding.covariates$estimator.renamed <- factor(result.adding.covariates$estimator.renamed , levels = c("Difference-in-means", "Minimal set", "Extended set"))
 ```
 
 
 ```{r}
 ggplot(result.adding.covariates, aes(x =  estimator.renamed, y = estimate, fill = estimator.renamed)) +
-  geom_boxplot(alpha = 0.9) +
-  geom_hline(aes(yintercept = ATE.Target, color = "ATE in Target population"),  size = 0.8, linetype = "dashed", color = "#EA471F") +
-  geom_hline(aes(yintercept = ATE.RCT, color = "ATE in Trial population"), size = 0.8, linetype="dashed", color = "#475E96")  +
+  geom_boxplot(alpha = 0.9, size = 0.7) +
+  geom_hline(aes(yintercept = ATE.Target, color = "ATE in Target population"),  size = 1, linetype = "dashed", color = "#EA471F") +
+  geom_hline(aes(yintercept = ATE.RCT, color = "ATE in Trial population"), size = 1, linetype="dashed", color = "#475E96")  +
   theme_minimal() +
-  scale_fill_manual(values=c("#999999", "#E69F00", "#EC560B")) +
-  theme(legend.title = element_blank(), legend.text = element_text(size = 10, face = "bold"), legend.position = "none", axis.text = element_text(size = 9, face = "bold", color = "black")) +
+  scale_fill_manual(values=c("#999999", "#E69F00", "#EC560B", "#EC560B", "#EC560B")) +
+  theme(legend.title = element_blank(), legend.text = element_text(size = 10, face = "bold"), legend.position = "none", axis.text = element_text(size = 10, face = "bold", color = "black")) +
   ylab("ATE") +
-  xlab("") 
-ggsave("./fig/toy_precision_covariates.pdf", width = 4, height = 4)
-```
-
-```{r}
-shifted.covariates <- read.csv("./results/toy.example.shifted.covariates.csv")
-shifted.covariates$n <- as.factor(shifted.covariates$n)
-```
-
-```{r}
-additional.covariates.modified <- shifted.covariates %>%
-  group_by(covariate.set, pt, n) %>%
-  summarise(variance = var(estimate)) %>%
-  pivot_wider(names_from = c(covariate.set), values_from = variance)
-
-additional.covariates.modified$inflation <- additional.covariates.modified$Extended / additional.covariates.modified$Minimal
-
-additional.covariates.modified$truth <-   (additional.covariates.modified$pt*additional.covariates.modified$pt)/0.5 + (1-additional.covariates.modified$pt)*(1-additional.covariates.modified$pt)/0.5
-
-additional.covariates.modified$borne.sup <- 2*additional.covariates.modified$truth
+  xlab("") +
+  annotate("text", x=2.6, y=21.5, label= 'atop(bold("Trial\'s ATE"))', color = "#475E96", size = 3.8, parse = TRUE)  +
+  annotate("text", x=1, y=12, label= 'atop(bold("Target\'s ATE"))', color = "#EA471F", size = 3.8, parse = T) 
+ggsave("./fig/toy_precision_covariates.pdf", width = 4.5, height = 4)
 ```
 
 
-```{r}
-ggplot(additional.covariates.modified, aes(x = pt, y = inflation, color = n)) +
-  geom_point() +
- geom_line(aes(x = pt, y = truth), color = "darkorange", size = 0.8, alpha = 0.8) +
-  geom_line(aes(x = pt, y = borne.sup), color = "darkblue", size = 0.8, alpha = 0.8, linetype = "dashed") +
-  theme_classic() +
-  ylab("Variance inflation") +
-  xlab(expression(p[T](x[2]==1)))
-ggsave("./fig/shifted_covariates.pdf", width = 4, height = 4)
-```
 
 # Semi-synthetic simulations
 

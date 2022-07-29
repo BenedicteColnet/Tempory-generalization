@@ -92,8 +92,6 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
                                                   ratio = 0.5, 
                                                   prop.X1.RCT = 0.75,
                                                   prop.X1.Target = 0.3,
-                                                  prop.X2.RCT = 0.5,
-                                                  prop.X2.Target = 0.9,
                                                   output.oracles = F){
   
   
@@ -102,39 +100,32 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
   X1.RCT <- rbinom(n = n, 1, prop.X1.RCT)
   X1.obs <- rbinom(n = m, 1, prop.X1.Target)
   
-  # X2 -- the covariate not explaining Y, juste shifted
-  X2.RCT <- rbinom(n = n, 1, prop.X2.RCT)
-  X2.obs <- rbinom(n = m, 1, prop.X2.Target)
-  
-  # X3 -- the treat. effect modifier but not shifted
-  X3.RCT <- rnorm(n = n, mean = 0, sd = 1)
-  X3.RCT <- floor(X3.RCT)
-  X3.obs <- rnorm(n = m, mean = 0, sd = 1)
-  X3.obs <- floor(X3.obs)
-
+  X2.RCT <- rnorm(n = n, mean = 0, sd = 2)
+  X2.RCT <- floor(X2.RCT)
+  X2.obs <- rnorm(n = m, mean = 0, sd = 2)
+  X2.obs <- floor(X2.obs)
   
   # random treatment assignment within the RCT / Bernoulli trial
   treat.assignment.in.RCT <-  rbinom(n, 1, ratio)
   
   output <- data.frame("X1" = c(X1.RCT, X1.obs),
                        "X2" = c(X2.RCT, X2.obs),
-                       "X3" = c(X3.RCT, X3.obs),
                        "S" = c(rep(1, n), rep(0, m)),
                        "A" = c(treat.assignment.in.RCT, rep(NA, m)))
   
   error_0 = rnorm(n = nrow(output), mean = 0, sd = 1)
   error_1 = rnorm(n = nrow(output), mean = 0, sd = 1)
   
-  Y_0 <- ifelse(output$X1 == 1, 0, 0) + 2*output$X3 
+  Y_0 <- ifelse(output$X1 == 1, 0, 0)
   output$Y_0 <- Y_0 + error_0
-  Y_1 <- ifelse(output$X1 == 1, 10, 5) +  -2*output$X3 
+  Y_1 <- ifelse(output$X1 == 1, 20, 5) - 10*output$X2
   output$Y_1 <- Y_1 + error_1
 
   # observed outcome
   output$Y <- ifelse(output$S == 1, ifelse(output$A == 1, output$Y_1, output$Y_0), NA)
   
   if (!output.oracles){
-    output <- output[, c("X1", "X2", "X3", "A", "Y", "S")]
+    output <- output[, c("X1", "X2", "A", "Y", "S")]
   }
   
   
