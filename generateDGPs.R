@@ -145,8 +145,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
   
   if(!generate.associated.ground.truth){
-    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = TRUE), ]
-    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = TRUE), ]
+    RCT <- source.RCT[sample(1:nrow(source.RCT), n, replace = FALSE), ]
+    Obs <- source.Obs[sample(1:nrow(source.Obs), m, replace = FALSE), ]
   } else {
     RCT <- source.RCT
     Obs <- source.Obs
@@ -159,7 +159,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   baseline <- (10 - total$Glasgow.initial) 
   - 2*(total$systolicBloodPressure.categorized-2)^2
   
-  cate <- 1*total$Glasgow.initial + 2*(6-total$time_to_treatment.categorized) + 1*total$gender
+  cate <- 3*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized) - 7*total$gender*total$gender*total$gender
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
