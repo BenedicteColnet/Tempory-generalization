@@ -60,6 +60,7 @@ for (i in 1:10){
       simulation <- simulation.semi.synthetic(n = neff, m = meff, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
       ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
       method = "ipsw"
+      print(ipsw)
       new.row <- data.frame("estimate" = ipsw,
                             "method" = method,
                             "n" = neff,
