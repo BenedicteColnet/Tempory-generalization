@@ -24,11 +24,11 @@ finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "n" = c(),
                                         "m" = c())
 
-for (i in 1:1000){
+for (i in 1:500){
   
   print(i)
   
-  for (neff in c(500, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000)){
+  for (neff in c(500, 2000, 3000, 4000, 6000)){
     
     # Generate data for oracle and semi oracle
     simulation <- simulation.semi.synthetic(n = neff, m = 1000, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
@@ -56,7 +56,7 @@ for (i in 1:1000){
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
     
-    for (meff in c(5000, 10000, 20000)) {
+    for (meff in c(5000, 10000)) {
       
       # Generate data
       simulation <- simulation.semi.synthetic(n = neff, m = meff, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
