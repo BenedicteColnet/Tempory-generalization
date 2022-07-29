@@ -229,7 +229,7 @@ print(paste0("Raw traumabase data contains following number of observations: ", 
 
 ```{r}
 # create a synthetic time to treatment covariates following a beta law
-simulated_time_to_treatment <- rbeta(nrow(Traumabase.imputed), 2, 5, ncp = 0)*310
+simulated_time_to_treatment <- rbeta(nrow(Traumabase.imputed), 2, 5, ncp = 0)*350
 hist(simulated_time_to_treatment)
 
 Traumabase.imputed$time_to_treatment <- floor(simulated_time_to_treatment)
@@ -302,17 +302,21 @@ total$time_to_treatment.categorized <- case_when(total$time_to_treatment < 60 ~ 
 
 ```{r}
 total$Glasgow.initial <- as.integer(total$Glasgow.initial) + 3
-total$Glasgow.initial <- total$Glasgow.initial/2
-total$Glasgow.initial <- floor(total$Glasgow.initial)
+total$Glasgow.initial <- total$Glasgow.initial/4
+total$Glasgow.initial <- 4*floor(total$Glasgow.initial)
 
 total$S <- as.factor(total$S)
 ```
 
-
-
 ```{r}
 summary(total)
 ```
+
+```{r}
+total$gender <- as.numeric(total$gender)
+```
+
+
 
 ## Sanity check: Is overlap ensured?
 

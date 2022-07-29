@@ -160,13 +160,10 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   
   
   # Outcome model
-  baseline <- (20 - total$Glasgow.initial) 
-  #+ 2*total$pupilReact_num 
-  - 2*(total$systolicBloodPressure.categorized-2)^2 
-  - 2*total$age.categorized 
+  baseline <- (10 - total$Glasgow.initial) 
+  - 2*(total$systolicBloodPressure.categorized-2)^2
   
-  
-  cate <- 0.5*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized)
+  cate <- 1*total$Glasgow.initial + 2*(6-total$time_to_treatment.categorized) + 1*total$gender
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
@@ -177,12 +174,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   }
   
   # add gaussian noise
-  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 0.5)
-  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 0.5)
-  
-  # gender is adding noise
-  extra.noise.gender.Y_0 <- ifelse(total$gender == 0, rnorm(1,  mean = 0, sd = 4), rnorm(1,  mean = 0, sd = 0))
-  total$Y_0 = total$Y_0 + extra.noise.gender.Y_0
+  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 2)
+  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 2)
   
   if(extra.noise.on.high.ttt){
     
