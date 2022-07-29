@@ -10,8 +10,8 @@ library(tidyr) # pivot longer or wider
 library(dplyr) # case_when and others
 
 source.data <- load("./data/semi-synthetic-DGP.rds")
-source.RCT <- total.with.overlap[total.with.overlap$S == 1,]
-source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
+load("./data/semi-synthetic-oracle-target.rds")
+load("./data/semi-synthetic-oracle-trial.rds")
 
 
 finite.sample.semi.oracle <- data.frame("estimate" = c(),
