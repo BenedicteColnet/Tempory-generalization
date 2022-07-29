@@ -3,7 +3,6 @@ library(MASS) # simulations
 library(ggplot2) # plots
 library(tidyr) # pivot longer or wider
 library(dplyr) # case_when and others
-library(ggridges)
 
 source("./estimators.R")
 source("./generateDGPs.R")
