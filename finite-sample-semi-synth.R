@@ -1,20 +1,24 @@
+# libraries
+library(MASS) # simulations
+library(ggplot2) # plots
+library(tidyr) # pivot longer or wider
+library(dplyr) # case_when and others
+library(ggridges)
+
 source("./estimators.R")
 source("./generateDGPs.R")
 
-
-set.seed(123)
 options(dplyr.summarise.inform = FALSE)
 
-# libraries
-library(tidyr) # pivot longer or wider
-library(dplyr) # case_when and others
-
-source.data <- load("./data/semi-synthetic-DGP.rds")
+# Load all data necessary for semi-synthetic simulation
+load("./data/semi-synthetic-DGP.rds")
 load("./data/semi-synthetic-oracle-target.rds")
 load("./data/semi-synthetic-oracle-trial.rds")
 
+# covariates needed
 MINIMAL_SET <- c("time_to_treatment.categorized",  "Glasgow.initial")
-
+EXTENDED_PRECISION_SET <- c("time_to_treatment.categorized",  "Glasgow.initial", "gender")
+EXTENDED_SHIFTED_SET <- c("time_to_treatment.categorized",  "Glasgow.initial", "systolicBloodPressure.categorized")
 
 finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "method" = c(),
@@ -60,7 +64,7 @@ for (i in 1:10){
       simulation <- simulation.semi.synthetic(n = neff, m = meff, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
       ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
       method = "ipsw"
-      print(ipsw)
+
       new.row <- data.frame("estimate" = ipsw,
                             "method" = method,
                             "n" = neff,
