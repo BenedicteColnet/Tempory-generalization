@@ -32,13 +32,13 @@ oracle.proba.target <- source.Obs %>%
 
 for (neff in seq(500, 3000, by = 500)){
   
-  for (meff in seq(500, 5000, by = 500)){
+  for (meff in seq(5000, 10000, by = 1000)){
     
     print(paste0("Starting n = ", neff, " and m = ", meff))
     
     for (i in 1:500){ 
       
-      simulation <- simulation.semi.synthetic(n = neff, m = meff, output.oracles = TRUE, extra.noise.on.high.ttt = T)
+      simulation <- simulation.semi.synthetic(n = neff, m = meff, output.oracles = TRUE, extra.noise.on.high.ttt = F)
       
       # add oracles
       simulation <- merge(simulation, oracle.proba.target)
