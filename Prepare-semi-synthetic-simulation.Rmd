@@ -216,7 +216,7 @@ vars.for.imputation <- c("Traitement.anticoagulant",
 "pupilReact_num",
 "gender")
 
-Traumabase.imputed <- missRanger(rawData_Traumabase[, vars.for.imputation], num.trees = 10)
+Traumabase.imputed <- missRanger(rawData_Traumabase[, vars.for.imputation], num.trees = 2)
 ```
 
 
@@ -229,7 +229,7 @@ print(paste0("Raw traumabase data contains following number of observations: ", 
 
 ```{r}
 # create a synthetic time to treatment covariates following a beta law
-simulated_time_to_treatment <- rbeta(nrow(Traumabase.imputed), 2, 5, ncp = 0)*350
+simulated_time_to_treatment <- rbeta(nrow(Traumabase.imputed), 2, 5, ncp = 0)*400
 hist(simulated_time_to_treatment)
 
 Traumabase.imputed$time_to_treatment <- floor(simulated_time_to_treatment)
@@ -315,7 +315,6 @@ summary(total)
 ```{r}
 total$gender <- as.numeric(total$gender)
 ```
-
 
 
 ## Sanity check: Is overlap ensured?
@@ -428,94 +427,106 @@ total.with.overlap$Source <- ifelse(total.with.overlap$S == 1, "CRASH-3", "Traum
 
 
 ```{r}
-n = nrow(total.with.overlap[total.with.overlap$S == 1,])
-m = nrow(total.with.overlap) - n
-
-total.with.overlap %>% 
-  group_by(time_to_treatment.categorized, Source) %>%  
-  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
-                          else round(100*n()/m,0)) %>%
-  mutate(percent = floor(percent)) %>%
-  ggplot(aes(x = time_to_treatment.categorized, fill = Source, group = Source)) +
-  geom_col(aes(y = percent), position = "dodge") +
+ggplot(data = total.with.overlap, 
+       aes(x = time_to_treatment.categorized, group = Source, fill = Source)) + 
+  geom_bar(aes(y = ..prop..), stat = "count") +
+  geom_text(aes(label = scales::percent(..prop..), y = ..prop.. ),             
+            stat = "count", vjust = -.5) +
+  labs(y = "Percent", fill="Time between accident and treatment (minutes)") +
+  facet_grid(~Source) +
+  scale_y_continuous(labels = scales::percent) +
   ylab("%") +
-  theme_minimal() +
   xlab("Time between accident and treatment (minutes)") +
-  scale_fill_manual(values=c("#E69F00", "#999999"))
-  ggsave("./fig/semi-synthetic-ttt.pdf", width = 5, height = 5)
-
-total.with.overlap %>% 
-  group_by(systolicBloodPressure.categorized, Source) %>%  
-  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
-                          else round(100*n()/m,0)) %>%
-  mutate(percent = floor(percent)) %>%
-  ggplot(aes(x = systolicBloodPressure.categorized, fill = Source, group = Source)) +
-  geom_col(aes(y = percent), position = "dodge") +
-  ylab("%") +
   theme_minimal() +
-  xlab("Systolic blood pressure") +
+  theme(legend.position = "none")+
+  scale_fill_manual(values=c("#E69F00", "#999999"))
+ggsave("./fig/semi-synthetic-ttt.pdf", width = 5, height = 5)
+
+```
+
+
+
+```{r}
+ggplot(data = total.with.overlap, 
+       aes(x = systolicBloodPressure.categorized, group = Source, fill = Source)) + 
+  geom_bar(aes(y = ..prop..), stat = "count") +
+  geom_text(aes(label = scales::percent(..prop..), y = ..prop.. ),             
+            stat = "count", vjust = -.5) +
+  labs(y = "Percent", fill="systolicBloodPressure.categorized") +
+  facet_grid(~Source) +
+  scale_y_continuous(labels = scales::percent) +
+  ylab("%") +
+  xlab("systolic blood pressure") +
+  theme_minimal() +
+  theme(legend.position = "none")+
   scale_fill_manual(values=c("#E69F00", "#999999"))
 ggsave("./fig/semi-synthetic-blood.pdf", width = 5, height = 5)
+```
 
-total.with.overlap %>% 
-  group_by(age.categorized, Source) %>%  
-  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
-                          else round(100*n()/m,0)) %>%
-  mutate(percent = floor(percent)) %>%
-  ggplot(aes(x = age.categorized, fill = Source, group = Source)) +
-  geom_col(aes(y = percent), position = "dodge") +
+```{r}
+ggplot(data = total.with.overlap, 
+       aes(x = age.categorized, group = Source, fill = Source)) + 
+  geom_bar(aes(y = ..prop..), stat = "count") +
+  geom_text(aes(label = scales::percent(..prop..), y = ..prop.. ),             
+            stat = "count", vjust = -.5) +
+  labs(y = "Percent", fill="Age") +
+  facet_grid(~Source) +
+  scale_y_continuous(labels = scales::percent) +
   ylab("%") +
-   theme_minimal() +
   xlab("Age (years)") +
+  theme_minimal() +
+  theme(legend.position = "none")+
   scale_fill_manual(values=c("#E69F00", "#999999"))
 ggsave("./fig/semi-synthetic-age.pdf", width = 5, height = 5)
+```
 
-total.with.overlap %>% 
-  group_by(gender, Source) %>%  
-  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
-                          else round(100*n()/m,0)) %>%
-  mutate(percent = floor(percent)) %>%
-  ggplot(aes(x = gender, fill = Source, group = Source)) +
-  geom_col(aes(y = percent), position = "dodge") +
+```{r}
+ggplot(data = total.with.overlap, 
+       aes(x = gender, group = Source, fill = Source)) + 
+  geom_bar(aes(y = ..prop..), stat = "count") +
+  geom_text(aes(label = scales::percent(..prop..), y = ..prop.. ),             
+            stat = "count", vjust = -.5) +
+  labs(y = "Percent", fill="Gender") +
+  facet_grid(~Source) +
+  scale_y_continuous(labels = scales::percent) +
   ylab("%") +
-   theme_minimal() +
-  #xlab("Gender") +
+  xlab("Gender") +
+  theme_minimal() +
+  theme(legend.position = "none")+
   scale_fill_manual(values=c("#E69F00", "#999999"))
 ggsave("./fig/semi-synthetic-gender.pdf", width = 5, height = 5)
 
-total.with.overlap %>% 
-  group_by(Glasgow.initial, Source) %>%  
-  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
-                          else round(100*n()/m,0)) %>%
-  mutate(percent = floor(percent)) %>%
-  ggplot(aes(x = Glasgow.initial, fill = Source, group = Source)) +
-  geom_col(aes(y = percent), position = "dodge") +
+ggplot(data = total.with.overlap, 
+       aes(x = Glasgow.initial, group = Source, fill = Source)) + 
+  geom_bar(aes(y = ..prop..), stat = "count") +
+  geom_text(aes(label = scales::percent(..prop..), y = ..prop.. ),             
+            stat = "count", vjust = -.5) +
+  labs(y = "Percent", fill="Gender") +
+  facet_grid(~Source) +
+  scale_y_continuous(labels = scales::percent) +
   ylab("%") +
-  theme_minimal() +
   xlab("Glasgow score") +
+  theme_minimal() +
+  theme(legend.position = "none")+
   scale_fill_manual(values=c("#E69F00", "#999999"))
 ggsave("./fig/semi-synthetic-glasgow.pdf", width = 5, height = 5)
 
 
-total.with.overlap %>% 
-  group_by(pupilReact_num, Source) %>%  
-  summarize(percent = if(Source == "CRASH-3") round(100*n()/n,0)
-                          else round(100*n()/m,0)) %>%
-  mutate(percent = floor(percent)) %>%
-  ggplot(aes(x = pupilReact_num, fill = Source, group = Source)) +
-  geom_col(aes(y = percent), position = "dodge") +
+ggplot(data = total.with.overlap, 
+       aes(x = pupilReact_num, group = Source, fill = Source)) + 
+  geom_bar(aes(y = ..prop..), stat = "count") +
+  geom_text(aes(label = scales::percent(..prop..), y = ..prop.. ),             
+            stat = "count", vjust = -.5) +
+  labs(y = "Percent", fill="Gender") +
+  facet_grid(~Source) +
+  scale_y_continuous(labels = scales::percent) +
   ylab("%") +
-   theme_minimal() +
   xlab("Pupil reactivity") +
+  theme_minimal() +
+  theme(legend.position = "none")+
   scale_fill_manual(values=c("#E69F00", "#999999"))
 ggsave("./fig/semi-synthetic-pupil.pdf", width = 5, height = 5)
 
-```
-
-```{r}
-ggplot(total.with.overlap, aes(x = time_to_treatment, fill = Source, group = Source)) +
-  geom_density(alpha = 0.5) +
-  theme_classic()
 ```
 
 

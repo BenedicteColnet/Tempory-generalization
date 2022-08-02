@@ -157,9 +157,9 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   
   # Outcome model
   baseline <- (10 - total$Glasgow.initial) 
-  - 2*(total$systolicBloodPressure.categorized-2)^2
+  - 1*(total$systolicBloodPressure.categorized-1)^2
   
-  cate <- 1*total$Glasgow.initial + 3*(6-total$time_to_treatment.categorized) - 2*total$gender*total$gender 
+  cate <- ifelse(total$Glasgow.initial == 6, 0, 1*total$Glasgow.initial) + 1*(6-total$time_to_treatment.categorized) - 1*total$gender*total$gender 
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
@@ -170,8 +170,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   }
   
   # add gaussian noise
-  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 2)
-  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 2*total$gender*total$gender)
+  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 1)
+  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 1)
   
   if(extra.noise.on.high.ttt){
     
