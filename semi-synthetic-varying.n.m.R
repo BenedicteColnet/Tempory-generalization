@@ -44,13 +44,13 @@ for (neff in seq(500, 3000, by = 500)){
       simulation <- merge(simulation, oracle.proba.target)
       simulation <- merge(simulation, oracle.proba.trial)
       
-      oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = T, oracle.pr = T)
+      oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = T, oracle.pr = T, oracle.pt.data = count.observations.in.each.strata.target, oracle.pr.data =count.observations.in.each.strata.trial )
       
-      semi.oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = T, oracle.pr = F)
+      semi.oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
       
       ipsw.estimate <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = F, oracle.pr = F)
       
-      naive.estimate <- difference.in.means(simulation)
+      naive.estimate <- difference.in.means(simulation, oracle.e.too = T)
       
       new.row <- data.frame("estimate" = c(oracle, semi.oracle, ipsw.estimate, naive.estimate),
                             "n" = rep(neff,4),
