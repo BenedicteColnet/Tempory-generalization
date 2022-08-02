@@ -159,7 +159,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   baseline <- (10 - total$Glasgow.initial) 
   - 1*(total$systolicBloodPressure.categorized-1)^2
   
-  cate <- ifelse(total$Glasgow.initial == 6, 0, 1*total$Glasgow.initial) + 1*(6-total$time_to_treatment.categorized) - 1*total$gender*total$gender 
+  cate <- ifelse(total$age.categorized == 1, 3, -3*total$age.categorized) + 10*(6-total$time_to_treatment.categorized)
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
@@ -176,7 +176,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   if(extra.noise.on.high.ttt){
     
     # adding extra noise if treatment given too late
-    extra.noise.Y_1 <- ifelse(total$time_to_treatment.categorized == 4, rnorm(1,  mean = 0, sd = 3), 0)
+    extra.noise.Y_1 <- ifelse(total$time_to_treatment.categorized == 4 | total$time_to_treatment.categorized == 3, rnorm(1,  mean = 0, sd = 4), 0)
     
     total$Y_1 <- total$Y_1 + extra.noise.Y_1
   }
