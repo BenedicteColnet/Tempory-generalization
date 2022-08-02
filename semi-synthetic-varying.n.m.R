@@ -29,11 +29,7 @@ for (neff in seq(500, 3000, by = 500)){
     
     for (i in 1:500){ 
       
-      simulation <- simulation.semi.synthetic(n = neff, m = meff, output.oracles = TRUE, extra.noise.on.high.ttt = F)
-      
-      # add oracles
-      simulation <- merge(simulation, oracle.proba.target)
-      simulation <- merge(simulation, oracle.proba.trial)
+      simulation <- simulation.semi.synthetic(n = neff, m = meff, output.oracles = F, extra.noise.on.high.ttt = F)
       
       oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = T, oracle.pr = T, oracle.pt.data = count.observations.in.each.strata.target, oracle.pr.data =count.observations.in.each.strata.trial )
       
