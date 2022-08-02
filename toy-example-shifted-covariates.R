@@ -18,9 +18,9 @@ for (pteff in seq(0.1, 0.9, by = 0.05)){
   
   print(pteff)
   
-  for (neff in c(250, 500, 1000)){
-    for (meff in c(5000, 50000)){
-      for (i in 1:100){
+  for (neff in c(150)){
+    for (meff in c(1000)){
+      for (i in 1:5000){
         for (preff in c(0.5, 0.25, 0.1)){
           
             # generate data
