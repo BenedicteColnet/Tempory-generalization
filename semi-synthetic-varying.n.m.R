@@ -15,19 +15,10 @@ semi.synthetic.simulations <- data.frame("estimate" = c(),
                                         "m" = c(),
                                         "method" = c())
 
-# Prepare oracles
-source.data <- load("./data/semi-synthetic-DGP.rds")
-source.RCT <- total.with.overlap[total.with.overlap$S == 1,]
-source.Obs <- total.with.overlap[total.with.overlap$S == 0,]
-
-
-oracle.proba.trial <- source.RCT %>% 
-  group_by(time_to_treatment.categorized, Glasgow.initial) %>%
-  summarise(pr = n()/nrow(source.RCT))
-
-oracle.proba.target <- source.Obs %>% 
-  group_by(time_to_treatment.categorized, Glasgow.initial) %>%
-  summarise(pt = n()/nrow(source.Obs))
+# Load all data necessary for semi-synthetic simulation
+load("./data/semi-synthetic-DGP.rds")
+load("./data/semi-synthetic-oracle-target.rds")
+load("./data/semi-synthetic-oracle-trial.rds")
 
 
 for (neff in seq(500, 3000, by = 500)){
