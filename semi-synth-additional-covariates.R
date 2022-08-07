@@ -17,7 +17,7 @@ load("./data/semi-synthetic-oracle-trial.rds")
 # covariates needed
 MINIMAL_SET <- c("time_to_treatment.categorized")
 EXTENDED_PRECISION_SET <- c("time_to_treatment.categorized", "age.categorized")
-EXTENDED_SHIFTED_SET <- c(EXTENDED_PRECISION_SET,  "Glasgow.initial", "pupilReact_num")
+EXTENDED_SHIFTED_SET <- c(MINIMAL_SET,  "Glasgow.initial")
 additional.covariates.shifted <- data.frame("estimate" = c(),
                                             "covariate.set" = c())
 
