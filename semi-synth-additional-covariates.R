@@ -15,8 +15,8 @@ load("./data/semi-synthetic-oracle-target.rds")
 load("./data/semi-synthetic-oracle-trial.rds")
 
 # covariates needed
-MINIMAL_SET <- c("time_to_treatment.categorized")
-EXTENDED_PRECISION_SET <- c("time_to_treatment.categorized", "age.categorized", "gender")
+MINIMAL_SET <- c("time_to_treatment.categorized", "systolicBloodPressure.categorized")
+EXTENDED_PRECISION_SET <- c(MINIMAL_SET, "X.treatment.effect.modifier")
 EXTENDED_SHIFTED_SET <- c(MINIMAL_SET,  "Glasgow.initial")
 additional.covariates.shifted <- data.frame("estimate" = c(),
                                             "covariate.set" = c())
@@ -25,7 +25,7 @@ for (i in 1:500){
   
   print(i)
   
-  simulation <- simulation.semi.synthetic(n = 3000, m = 10000, source.data = total.with.overlap, extra.noise.on.high.ttt = F)
+  simulation <- simulation.semi.synthetic(n = 3000, m = 10000, source.data = total.with.overlap, extra.noise.on.high.ttt = F, non.shifted.treatment.effect.modifier = T)
   
   ipsw.minimal <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
   

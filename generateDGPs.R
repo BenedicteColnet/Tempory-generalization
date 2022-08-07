@@ -133,7 +133,7 @@ simulation.multivariate.categorical.X <- function(n = 1000, m = 1000,
 }
 
 
-simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.oracles = FALSE, extra.noise.on.high.ttt = FALSE, source.data = NULL, generate.associated.ground.truth = FALSE){
+simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.oracles = FALSE, extra.noise.on.high.ttt = FALSE, source.data = NULL, generate.associated.ground.truth = FALSE, non.shifted.treatment.effect.modifier = FALSE){
   
   # load source data
   if(is.null(source.data)){
@@ -152,16 +152,31 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
     Obs <- source.Obs
   }
   
+  if (non.shifted.treatment.effect.modifier){
+    # add non shifted treatment effect modifier
+    non.shifted.treatment.effect.modifier.RCT <- rbinom(n = n, 1, 0.5)
+    non.shifted.treatment.effect.modifier.Obs <- rbinom(n = m, 1, 0.5)
+    
+    RCT$non.shifted.treatment.effect.modifier <- non.shifted.treatment.effect.modifier.RCT
+    Obs$non.shifted.treatment.effect.modifier <- non.shifted.treatment.effect.modifier.Obs
+  }
+  
+  
   total <- rbind(RCT, Obs)
   total <- as.data.frame(total)
+  
+  
   
   total$Glasgow.initial <- as.numeric(total$Glasgow.initial)
   
   # Outcome model
-  baseline <- (10 - total$Glasgow.initial) 
-  - 1*(total$systolicBloodPressure.categorized-1)^2 - 2*total$gender
+  baseline <- (10 - total$Glasgow.initial) - 30*total$gender
   
-  cate <- ifelse(total$age.categorized == 1, 4, -3*total$age.categorized) + 15*(6-total$time_to_treatment.categorized) + 3*total$gender
+  cate <-  15*(6-total$time_to_treatment.categorized) + 3*(total$systolicBloodPressure.categorized-1)^2 
+  
+  if (non.shifted.treatment.effect.modifier){
+    cate <- cate + 30*total$X.treatment.effect.modifier
+  }
   
   total$Y_0 = baseline 
   total$Y_1 =  baseline + cate
