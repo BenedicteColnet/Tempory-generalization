@@ -282,10 +282,9 @@ We also lower the granularity of Glasgow score so that the semi-synthetic experi
 
 
 ```{r}
-total$age.categorized <- case_when(total$age < 35 ~ 1,
-                                total$age >= 35 &  total$age < 50 ~ 2,
-                                total$age >= 50 &  total$age < 60 ~ 3,
-                                total$age >= 60 ~ 4)
+total$age.categorized <- case_when(total$age < 25 ~ 1,
+                                total$age >= 25 &  total$age < 55 ~ 2,
+                                total$age >= 55 ~ 3)
 
 
 total$systolicBloodPressure.categorized <- case_when(total$systolicBloodPressure < 120 ~ 1,
@@ -301,10 +300,6 @@ total$time_to_treatment.categorized <- case_when(total$time_to_treatment < 60 ~ 
 ```
 
 ```{r}
-total$Glasgow.initial <- as.integer(total$Glasgow.initial) + 3
-total$Glasgow.initial <- total$Glasgow.initial/4
-total$Glasgow.initial <- 4*floor(total$Glasgow.initial)
-
 total$S <- as.factor(total$S)
 ```
 
@@ -314,6 +309,10 @@ summary(total)
 
 ```{r}
 total$gender <- as.numeric(total$gender)
+```
+
+```{r}
+table(total$Glasgow.initial)
 ```
 
 
@@ -377,10 +376,9 @@ save(count.observations.in.each.strata.trial, file = "./data/semi-synthetic-orac
 ## Rename the columns for nice plots
 
 ```{r}
-total.with.overlap$age.categorized <- case_when(total.with.overlap$age < 35 ~ "< 35",
-                                total.with.overlap$age >= 35 &  total.with.overlap$age < 50 ~ "35 - 50",
-                                total.with.overlap$age >= 50 &  total.with.overlap$age < 60 ~ "50 - 60",
-                                total.with.overlap$age >= 60 ~ "> 60")
+total.with.overlap$age.categorized <- case_when(total.with.overlap$age < 25 ~ "< 25",
+                                total.with.overlap$age >= 25 &  total.with.overlap$age < 55 ~ "25 - 55",
+                                total.with.overlap$age >= 55 ~ "> 55")
 total.with.overlap$age.categorized <- as.factor(total.with.overlap$age.categorized)
 
 
@@ -397,12 +395,6 @@ total.with.overlap$time_to_treatment.categorized <- case_when(total.with.overlap
                                 total.with.overlap$time_to_treatment >= 190 ~ "> 190")
 
 
-total.with.overlap$Glasgow.initial <- as.integer(total.with.overlap$Glasgow.initial) + 2
-total.with.overlap$Glasgow.initial <- ifelse(total.with.overlap$Glasgow.initial  == 3, 4, total.with.overlap$Glasgow.initial)
-total.with.overlap$Glasgow.initial <- ifelse(total.with.overlap$Glasgow.initial == 15, 14, total.with.overlap$Glasgow.initial)
-total.with.overlap$Glasgow.initial <- as.factor(total.with.overlap$Glasgow.initial)
-
-
 total.with.overlap$pupilReact_num <- as.factor(total.with.overlap$pupilReact_num)
 total.with.overlap$gender <- ifelse(total.with.overlap$gender == 1, "Female", "Male")
 
@@ -415,7 +407,7 @@ total.with.overlap$S <- as.factor(total.with.overlap$S)
 
 
 ```{r}
-total.with.overlap$age.categorized <- factor(total.with.overlap$age.categorized, order = TRUE, levels = c("< 35", "35 - 50", "50 - 60", "> 60"))
+total.with.overlap$age.categorized <- factor(total.with.overlap$age.categorized, order = TRUE, levels = c("< 25", "25 - 55", "> 55"))
 
 total.with.overlap$time_to_treatment.categorized <- factor(total.with.overlap$time_to_treatment.categorized, order = TRUE, levels =c("< 60", "60 - 120", "120 - 190", "> 190"))
 ```
@@ -460,7 +452,7 @@ ggplot(data = total.with.overlap,
   theme_minimal() +
   theme(legend.position = "none")+
   scale_fill_manual(values=c("#E69F00", "#999999"))
-ggsave("./fig/semi-synthetic-blood.pdf", width = 5, height = 5)
+ggsave("./fig/semi-synthetic-blood.pdf", width = 8, height = 5)
 ```
 
 ```{r}
@@ -509,7 +501,7 @@ ggplot(data = total.with.overlap,
   theme_minimal() +
   theme(legend.position = "none")+
   scale_fill_manual(values=c("#E69F00", "#999999"))
-ggsave("./fig/semi-synthetic-glasgow.pdf", width = 5, height = 5)
+ggsave("./fig/semi-synthetic-glasgow.pdf", width = 15, height = 5)
 
 
 ggplot(data = total.with.overlap, 
