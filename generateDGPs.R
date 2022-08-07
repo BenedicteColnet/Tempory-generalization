@@ -153,18 +153,18 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   }
   
   if (non.shifted.treatment.effect.modifier){
+    
     # add non shifted treatment effect modifier
     non.shifted.treatment.effect.modifier.RCT <- rbinom(n = n, 1, 0.5)
     non.shifted.treatment.effect.modifier.Obs <- rbinom(n = m, 1, 0.5)
     
-    RCT$non.shifted.treatment.effect.modifier <- non.shifted.treatment.effect.modifier.RCT
-    Obs$non.shifted.treatment.effect.modifier <- non.shifted.treatment.effect.modifier.Obs
+    RCT$X.treatment.effect.modifier <- non.shifted.treatment.effect.modifier.RCT
+    Obs$X.treatment.effect.modifier <- non.shifted.treatment.effect.modifier.Obs
   }
   
   
   total <- rbind(RCT, Obs)
   total <- as.data.frame(total)
-  
   
   
   total$Glasgow.initial <- as.numeric(total$Glasgow.initial)
