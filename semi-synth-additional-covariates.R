@@ -25,7 +25,7 @@ for (i in 1:500){
   
   print(i)
   
-  simulation <- simulation.semi.synthetic(n = 2000, m = 15000, source.data = total.with.overlap, extra.noise.on.high.ttt = F)
+  simulation <- simulation.semi.synthetic(n = 3000, m = 8000, source.data = total.with.overlap, extra.noise.on.high.ttt = F)
   
   ipsw.minimal <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
   
