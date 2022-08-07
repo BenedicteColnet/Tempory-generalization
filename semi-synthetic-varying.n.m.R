@@ -23,7 +23,7 @@ load("./data/semi-synthetic-oracle-trial.rds")
 
 for (neff in seq(500, 3000, by = 500)){
   
-  for (meff in seq(3000, 10000, by = 1000)){
+  for (meff in seq(500, 9500, by = 1000)){
     
     print(paste0("Starting n = ", neff, " and m = ", meff))
     
@@ -31,11 +31,11 @@ for (neff in seq(500, 3000, by = 500)){
       
       simulation <- simulation.semi.synthetic(n = neff, m = meff, output.oracles = F, extra.noise.on.high.ttt = F)
       
-      oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = T, oracle.pr = T, oracle.pt.data = count.observations.in.each.strata.target, oracle.pr.data =count.observations.in.each.strata.trial )
+      oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized"), oracle.e = T, oracle.pt = T, oracle.pr = T, oracle.pt.data = count.observations.in.each.strata.target, oracle.pr.data =count.observations.in.each.strata.trial )
       
-      semi.oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
+      semi.oracle <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized"), oracle.e = T, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
       
-      ipsw.estimate <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized", "Glasgow.initial"), oracle.e = T, oracle.pt = F, oracle.pr = F)
+      ipsw.estimate <- ipsw.binned(simulation, covariates_names_vector = c("time_to_treatment.categorized"), oracle.e = T, oracle.pt = F, oracle.pr = F)
       
       naive.estimate <- difference.in.means(simulation, oracle.e.too = T)
       
