@@ -175,7 +175,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   cate <-  15*(6-total$time_to_treatment.categorized) + 3*(total$systolicBloodPressure.categorized-1)^2 
   
   if (non.shifted.treatment.effect.modifier){
-    cate <- cate + 30*total$X.treatment.effect.modifier
+    cate <- cate + 50*total$X.treatment.effect.modifier
   }
   
   total$Y_0 = baseline 
