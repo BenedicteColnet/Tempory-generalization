@@ -13,7 +13,7 @@ toy.examples.varying.n.m <- data.frame("n" = c(),
 
 
 for ( neff in seq(40, 200, by = 20)){
-  for ( meff in seq(20, 100, by = 20)){
+  for ( meff in seq(50, 450, by = 100)){
     
     print(paste0("Starting n = ", neff, " and m = ", meff))
     

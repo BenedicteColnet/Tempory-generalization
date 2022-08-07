@@ -170,7 +170,7 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   total$Glasgow.initial <- as.numeric(total$Glasgow.initial)
   
   # Outcome model
-  baseline <- (10 - total$Glasgow.initial) - 30*total$gender
+  baseline <- (10 - total$Glasgow.initial) - 5*total$gender
   
   cate <-  15*(6-total$time_to_treatment.categorized) + 3*(total$systolicBloodPressure.categorized-1)^2 
   
