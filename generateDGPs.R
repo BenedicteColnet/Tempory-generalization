@@ -170,8 +170,8 @@ simulation.semi.synthetic <- function(n = 1000, m = 1000, ratio = 0.5, output.or
   }
   
   # add gaussian noise
-  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 2*total$age.categorized)
-  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 5*total$gender + 1)
+  total$Y_0 = total$Y_0 + rnorm(n+m,  mean = 0, sd = 1)
+  total$Y_1 =  total$Y_1 + rnorm(n+m,  mean = 0, sd = 1)
   
   if(extra.noise.on.high.ttt){
     
