@@ -21,11 +21,11 @@ EXTENDED_SHIFTED_SET <- c("time_to_treatment.categorized",  "Glasgow.initial")
 additional.covariates.shifted <- data.frame("estimate" = c(),
                                             "covariate.set" = c())
 
-for (i in 1:1000){
+for (i in 1:500){
   
   print(i)
   
-  simulation <- simulation.semi.synthetic(n = 500, m = 10000, source.data = total.with.overlap)
+  simulation <- simulation.semi.synthetic(n = 3000, m = 15000, source.data = total.with.overlap)
   
   ipsw.minimal <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
   
