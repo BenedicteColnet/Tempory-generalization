@@ -64,7 +64,7 @@ for (i in 1:1000){
     new.row <- data.frame("estimate" = ipsw,
                             "method" = method,
                             "n" = neff,
-                            "m" = meff)
+                            "m" = neff)
       
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
@@ -77,7 +77,7 @@ for (i in 1:1000){
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
                           "n" = neff,
-                          "m" = meff)
+                          "m" = 10*neff)
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
@@ -90,7 +90,7 @@ for (i in 1:1000){
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
                           "n" = neff,
-                          "m" = meff)
+                          "m" = neff/10)
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
