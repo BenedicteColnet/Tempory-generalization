@@ -56,20 +56,44 @@ for (i in 1:1000){
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
     
-    for (meff in c(5000, 10000)) {
-      
-      # Generate data
-      simulation <- simulation.semi.synthetic(n = neff, m = meff, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
-      ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
-      method = "ipsw"
+    # n = m
+    simulation <- simulation.semi.synthetic(n = neff, m = neff, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
+    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
+    method = "ipsw - m = n"
 
-      new.row <- data.frame("estimate" = ipsw,
+    new.row <- data.frame("estimate" = ipsw,
                             "method" = method,
                             "n" = neff,
                             "m" = meff)
       
-      finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
-    }
+    finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
+    
+    
+    # m >> n
+    simulation <- simulation.semi.synthetic(n = neff, m = 10*neff, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
+    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
+    method = "ipsw - m >> n"
+    
+    new.row <- data.frame("estimate" = ipsw,
+                          "method" = method,
+                          "n" = neff,
+                          "m" = meff)
+    
+    finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
+    
+    
+    # n >> m
+    simulation <- simulation.semi.synthetic(n = neff, m = neff/10, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
+    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
+    method = "ipsw - n >> m"
+    
+    new.row <- data.frame("estimate" = ipsw,
+                          "method" = method,
+                          "n" = neff,
+                          "m" = meff)
+    
+    finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
+    
   }
 }
 
