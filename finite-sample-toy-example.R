@@ -19,11 +19,11 @@ finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "n" = c(),
                                         "m" = c())
 
-for (i in 1:2000){
+for (i in 1:1000){
   
   print(i)
   
-  for (neff in c(500, 1000, 1500)){
+  for (neff in c(100, 250, 500, 750, 1000)){
     
     # Generate data for oracle and semi oracle
     simulation <- toy.example(n = neff, m = 20, output.oracles = T, noisier.var.X1 = F)
