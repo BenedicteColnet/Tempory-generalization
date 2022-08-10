@@ -93,4 +93,4 @@ for (i in 1:2000){
 }
 
 
-write.csv(finite.sample.semi.oracle, "./results/finite.sample.semi.synthetic.csv", row.names = TRUE)
+write.csv(finite.sample.semi.oracle, "./results/finite.sample.toy.example.csv", row.names = TRUE)
