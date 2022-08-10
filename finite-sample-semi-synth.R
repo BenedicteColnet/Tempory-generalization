@@ -15,9 +15,7 @@ load("./data/semi-synthetic-oracle-target.rds")
 load("./data/semi-synthetic-oracle-trial.rds")
 
 # covariates needed
-MINIMAL_SET <- c("time_to_treatment.categorized",  "Glasgow.initial")
-EXTENDED_PRECISION_SET <- c("time_to_treatment.categorized",  "Glasgow.initial", "gender")
-EXTENDED_SHIFTED_SET <- c("time_to_treatment.categorized",  "Glasgow.initial", "systolicBloodPressure.categorized")
+MINIMAL_SET <- c("time_to_treatment.categorized", "systolicBloodPressure.categorized")
 
 finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "method" = c(),
@@ -28,13 +26,13 @@ for (i in 1:1000){
   
   print(i)
   
-  for (neff in c(500, 2000, 3000, 4000, 6000)){
+  for (neff in c(1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000)){
     
     # Generate data for oracle and semi oracle
     simulation <- simulation.semi.synthetic(n = neff, m = 1000, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
     
     # fully oracle
-    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = T, oracle.pr = T, oracle.pt.data = count.observations.in.each.strata.target, oracle.pr.data = count.observations.in.each.strata.trial)
+    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = T, oracle.pt = T, oracle.pr = T, oracle.pt.data = count.observations.in.each.strata.target, oracle.pr.data = count.observations.in.each.strata.trial)
     method = "oracle"
     
     new.row <- data.frame("estimate" = ipsw,
@@ -45,7 +43,7 @@ for (i in 1:1000){
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
     # semi oracle
-    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
+    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = T, oracle.pt = T, oracle.pr = F, oracle.pt.data = count.observations.in.each.strata.target)
     method = "semi.oracle"
     
     new.row <- data.frame("estimate" = ipsw,
@@ -58,7 +56,7 @@ for (i in 1:1000){
     
     # n = m
     simulation <- simulation.semi.synthetic(n = neff, m = neff, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
-    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
+    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = T, oracle.pt = F, oracle.pr = F)
     method = "ipsw - m = n"
 
     new.row <- data.frame("estimate" = ipsw,
@@ -71,7 +69,7 @@ for (i in 1:1000){
     
     # m >> n
     simulation <- simulation.semi.synthetic(n = neff, m = 10*neff, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
-    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
+    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = T, oracle.pt = F, oracle.pr = F)
     method = "ipsw - m >> n"
     
     new.row <- data.frame("estimate" = ipsw,
@@ -84,7 +82,7 @@ for (i in 1:1000){
     
     # n >> m
     simulation <- simulation.semi.synthetic(n = neff, m = neff/10, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
-    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = F, oracle.pt = F, oracle.pr = F)
+    ipsw <- ipsw.binned(dataframe = simulation, covariates_names_vector = MINIMAL_SET, oracle.e = T, oracle.pt = F, oracle.pr = F)
     method = "ipsw - n >> m"
     
     new.row <- data.frame("estimate" = ipsw,
