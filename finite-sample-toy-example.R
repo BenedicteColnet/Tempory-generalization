@@ -65,27 +65,27 @@ for (i in 1:1000){
     
     
     # m >> n
-    simulation <- toy.example(n = neff, m = 20*neff, output.oracles = T, noisier.var.X1 = F)
+    simulation <- toy.example(n = neff, m = 5*neff, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
     method = "ipsw - m >> n"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
                           "n" = neff,
-                          "m" = 20*neff)
+                          "m" = 5*neff)
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
     
     # n >> m
-    simulation <- toy.example(n = neff, m = neff/20, output.oracles = T, noisier.var.X1 = F)
+    simulation <- toy.example(n = neff, m = neff/50, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
     method = "ipsw - n >> m"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
                           "n" = neff,
-                          "m" = neff/20)
+                          "m" = neff/50)
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
