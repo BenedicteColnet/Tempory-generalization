@@ -22,11 +22,11 @@ finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "n" = c(),
                                         "m" = c())
 
-for (i in 1:5000){
+for (i in 1:2000){
   
   print(i)
   
-  for (neff in c(1000, 2500, 5000)){
+  for (neff in c(500, 1000, 1500)){
     
     # Generate data for oracle and semi oracle
     simulation <- simulation.semi.synthetic(n = neff, m = 1000, extra.noise.on.high.ttt = F, source.data = total.with.overlap)
