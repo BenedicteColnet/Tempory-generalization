@@ -54,7 +54,7 @@ for (i in 1:1000){
     # n = m
     simulation <- toy.example(n = neff, m = neff, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "ipsw - m = n"
+    method = "IPSW: m = n"
 
     new.row <- data.frame("estimate" = ipsw,
                             "method" = method,
@@ -69,7 +69,7 @@ for (i in 1:1000){
     # m >> n
     simulation <- toy.example(n = neff, m = 5*neff, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "ipsw - m >> n"
+    method = "IPSW: m = 5*n"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
@@ -82,7 +82,7 @@ for (i in 1:1000){
     # n = 10 m
     simulation <- toy.example(n = neff, m = neff/5, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "ipsw - n > m"
+    method = "IPSW: m = n/5"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
@@ -94,7 +94,7 @@ for (i in 1:1000){
     # n >> m
     simulation <- toy.example(n = neff, m = neff/10, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "ipsw - n >> m"
+    method = "IPSW: m = n/10"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
