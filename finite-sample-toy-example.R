@@ -19,7 +19,7 @@ finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "n" = c(),
                                         "m" = c())
 
-for (i in 1:1000){
+for (i in 1:2000){
   
   print(i)
   
