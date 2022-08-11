@@ -91,26 +91,26 @@ for (i in 1:3000){
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
-    # n = 10 * m
-    simulation <- toy.example(n = neff, m = neff/10, output.oracles = T, noisier.var.X1 = F)
+    # n = 2 * m
+    simulation <- toy.example(n = neff, m = neff/2, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "IPSW: m = n/10"
+    method = "IPSW: m = n/2"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
                           "n" = neff,
-                          "m" = neff/10)
+                          "m" = neff/2)
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
     
-    # m = 10 * n
-    simulation <- toy.example(n = neff, m = 10*neff, output.oracles = T, noisier.var.X1 = F)
+    # m = 2* n
+    simulation <- toy.example(n = neff, m = 2*neff, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "IPSW: n = m/10"
+    method = "IPSW: n = m/2"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
-                          "n" = neff/10,
+                          "n" = neff/2,
                           "m" = neff)
     
     finite.sample.semi.oracle <- rbind(finite.sample.semi.oracle, new.row)
