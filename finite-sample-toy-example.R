@@ -19,7 +19,7 @@ finite.sample.semi.oracle <- data.frame("estimate" = c(),
                                         "n" = c(),
                                         "m" = c())
 
-for (i in 1:3000){
+for (i in 1:6000){
   
   print(i)
   
@@ -54,7 +54,7 @@ for (i in 1:3000){
     # n = m
     simulation <- toy.example(n = neff, m = neff, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "IPSW: m = n"
+    method = "IPSW: m = m"
 
     new.row <- data.frame("estimate" = ipsw,
                             "method" = method,
@@ -69,7 +69,7 @@ for (i in 1:3000){
     # m = n^2
     simulation <- toy.example(n = neff, m = neff*neff, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "IPSW: m = n*n"
+    method = "IPSW: n = √m"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
@@ -94,7 +94,7 @@ for (i in 1:3000){
     # n = 2 * m
     simulation <- toy.example(n = neff, m = neff/2, output.oracles = T, noisier.var.X1 = F)
     ipsw <- ipsw.univariate.and.categorical.X(dataframe = simulation, oracle.e = T, oracle.pt = F, oracle.pr = F)
-    method = "IPSW: m = n/2"
+    method = "IPSW: n = 2m"
     
     new.row <- data.frame("estimate" = ipsw,
                           "method" = method,
